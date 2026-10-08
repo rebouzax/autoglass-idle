@@ -1,0 +1,26 @@
+const paths = {
+  stock:'<path d="M6 4h12v16H6zM9 7h6M9 11h6M9 15h6"/>',
+  warehouse:'<path d="M3 21V8l9-5 9 5v13M7 21v-8h10v8M7 17h10M12 13v8"/>',
+  truck:'<path d="M2 5h12v12H2zM14 9h4l4 5v3h-8M18 9v5h4"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>',
+  cashier:'<path d="M4 13h16v8H4zM6 13V9h12v4M9 9V3h8v6M13 17h3"/>',
+  wrench: '<path d="M14 4a6 6 0 0 0-7 8L3 16a3 3 0 0 0 4 4l4-4a6 6 0 0 0 8-7l-4 4-4-4z"/>',
+  coin: '<circle cx="12" cy="12" r="9"/><path d="M15 8.5h-4a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4H9m3-10v12"/>',
+  earned: '<path d="M4 18h16M6 14l5-5 4 3 5-7m-5 0h5v5"/>',
+  person: '<circle cx="12" cy="7" r="3"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/>',
+  worker: '<path d="M5 10h14M7 10V7a5 5 0 0 1 10 0v3m-5-7v5"/><path d="M8 12a4 4 0 0 0 8 0M5 22v-2a7 7 0 0 1 14 0v2"/>',
+  garage: '<path d="M3 21V8l9-5 9 5v13M6 21V11h12v10M6 15h12M6 18h12"/>',
+  car: '<path d="M5 11l2-6h10l2 6M3 12h18v6H3zm2 6v3m14-3v3M6 14h2m8 0h2"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  minus: '<path d="M5 12h14"/>',
+  pause: '<path d="M8 5v14M16 5v14"/>',
+  play: '<path d="M8 4l12 8-12 8z"/>',
+  home: '<path d="M3 11l9-8 9 8M5 9v12h14V9M9 21v-7h6v7"/>',
+  center: '<path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/><circle cx="12" cy="12" r="3"/>',
+  roof: '<path d="M2 12l10-8 10 8-10 8zM5 15v5m14-5v5"/>',
+  gear: '<path d="M9 4l1-2h4l1 2 3 2h3v4l-2 2 2 2v4h-3l-3 2-1 2h-4l-1-2-3-2H3v-4l2-2-2-2V6h3z"/><circle cx="12" cy="12" r="3"/>',
+  exit: '<path d="M10 3H4v18h6m4-14l5 5-5 5M8 12h12"/>',
+  close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  chevron: '<path d="M6 14l6-6 6 6"/>',
+  hand: '<path d="M8 12V5a2 2 0 0 1 4 0v6-1a2 2 0 0 1 4 0v2a2 2 0 0 1 4 0v4c0 4-3 6-6 6h-2c-3 0-4-2-6-5l-3-4a2 2 0 0 1 3-2l2 2"/>'
+};
+export const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.plus}</svg>`;

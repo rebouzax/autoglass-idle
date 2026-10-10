@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import logoUrl from '../assets/autoglass-logo.png';
+import {activeStaff} from '../models/Workforce.js';
 import {itDesk,deploymentPoint} from '../models/ShopLayout.js';
 import {box,roundedBox,chair} from './LowPolyAssets.js';
 
@@ -52,7 +53,7 @@ export function buildITDepartment(parent,roof,state,layout){
   for(const x of [l.officeLeft,l.officeRight]){box(parent,'#d5e3ec',[.22,.8,depth],[x,.685,mid]);box(parent,'#1b78b8',[.235,.07,depth],[x,1.115,mid]);}
   box(parent,'#d5e3ec',[width,1.75,.22],[center,1.16,l.itBack]);box(parent,'#2456a0',[width,.33,.24],[center,2.2,l.itBack]);
   box(roof,'#23558a',[width+.3,.24,depth+.25],[center,3.7,mid]);
-  for(let i=0;i<state.itWorkers;i++){
+  for(let i=0;i<activeStaff(state,'itWorker');i++){
     const p=itDesk(state,i),z=p.z-1.1;chair(parent,p.x,p.z,p.facing,'#477cba');
     for(const x of [p.x-1.08,p.x+1.08])box(parent,'#507489',[.085,.78,.48],[x,.67,z]);
     roundedBox(parent,'#eff7fb',[2.6,.12,.8],[p.x,1.13,z]);

@@ -1,4 +1,7 @@
 const paths={
+ robot:'<rect x="4" y="7" width="16" height="12" rx="4"/><path d="M12 7V3m-2 0h4M2 11v5m20-5v5M8 19v3m8-3v3M8 15h8"/><circle cx="8" cy="11" r="1"/><circle cx="16" cy="11" r="1"/>',
+ plane:'<path d="m2 14 8-4V4a2 2 0 0 1 4 0v6l8 4v3l-8-2v4l3 2H7l3-2v-4l-8 2v-3z"/>',
+ ship:'<path d="M4 12h16l-2 7H6l-2-7zM8 12V6h8v6M10 6V3h4v3M2 21q3-3 5 0 3-3 5 0 3-3 5 0 3-3 5 0M8 9h2m4 0h2"/>',
   mirror:'<path d="M6 15V9a4 4 0 0 1 4-4h8a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6l-2 4H2v-5h4M10 8h6"/>',
   motorcycle:'<circle cx="5" cy="17" r="3.5"/><circle cx="19" cy="17" r="3.5"/><path d="m5 17 5-8 5 8H5m8-11h4l2 11M9 9H5"/>',
   parcel:'<path d="m3 7 9-4 9 4v12l-9 4-9-4V7zm0 0 9 4 9-4M12 11v12M7 5l9 4v4"/>',

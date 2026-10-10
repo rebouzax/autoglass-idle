@@ -11,10 +11,6 @@ export function buildFulfillment(parent,state,l){
  for(let x=start+.2;x<end;x+=.6){const roller=cylinder(group,'#9eb7c0',.1,.96,[x,1.03,-14.9],8);roller.rotation.x=Math.PI/2;}
  for(const z of [-15.48,-14.32])box(group,'#eab961',[end-start,.12,.07],[center,1.11,z]);
  for(let i=0;i<5;i++){const parcel=roundedBox(parent,['#d8af75','#8cbdd5','#e6c38e'][i%3],[.65,.6,.75],[start+i,1.37,-14.9]);box(parcel,'#f5ecd7',[.14,.025,.76],[0,.305,0]);parcels.push({mesh:parcel,index:i,start,end});}
- for(let x=20;x<l.right-2;x+=5.5)for(let z=-22;z>l.clBack+3;z-=8){
-  for(const side of [-1,1])for(const dz of [-.58,.58])box(group,'#3183b0',[.1,2.9,.1],[x+side*1.3,1.7,z+dz]);
-  for(let level=0;level<3;level++){box(group,'#e9b965',[2.7,.1,1.3],[x,.52+level*.96,z]);for(const side of [-1,1]){roundedBox(group,['#c9a577','#abcad5','#deb67f'][level],[1.03,.63,1.06],[x+side*.62,.89+level*.96,z]);box(group,'#f1e5ca',[.17,.015,1.08],[x+side*.62,1.212+level*.96,z]);}}
- }
  if(state.garageLevel>=12)for(const x of [end-1,end-4]){
   cylinder(group,'#446d89',.48,.9,[x,.73,-16.4],10);const arm=new THREE.Group();arm.position.set(x,1.15,-16.4);parent.add(arm);box(arm,'#f1b451',[.25,1.3,.3],[0,.65,0]);box(arm,'#f1b451',[.24,.27,1.3],[0,1.27,.53]);box(arm,'#435e75',[.45,.22,.35],[0,1.14,1.1]);arms.push(arm);
  }
@@ -65,17 +61,18 @@ export function buildCampus(parent,roof,state,l,doorway){
   for(let x=left+2;x<far-1;x+=4.4){cylinder(roof,'#7292a2',.55,1.7,[x,4.85,-32.5],10);box(roof,'#284e74',[2.8,.07,2],[x,4.3,-20.5]);}
  }
  if(state.garageLevel>=15){
-  for(const side of [-1,1]){const x=l.officeLeft+9+side*3.5;roundedBox(group,'#2770a0',[5.5,5.4,4.2],[x,6.2,-26]);for(let row=0;row<4;row++)box(group,'#a4d8e3',[5,.7,.06],[x,4.5+row*1.1,-23.86],true);}
-  addBrandPanel(parent,6.5,l.officeLeft+9,8.35,-23.76);
+  box(group,'#d5e3e5',[13.8,.18,5],[l.officeLeft+9,.2,-34.5]);
+  for(const side of [-1,1]){const x=l.officeLeft+9+side*3.5;roundedBox(group,'#2770a0',[5.5,5.4,4.2],[x,3.1,-34.5]);for(let row=0;row<4;row++)box(group,'#a4d8e3',[5,.7,.06],[x,1.4+row*1.1,-32.36],true);}
+  addBrandPanel(parent,6.5,l.officeLeft+9,5.25,-32.26);
  }
  if(state.garageLevel>=9&&l.plotBack<-44){
-  const yardLeft=l.officeLeft+2,yardRight=l.plotRight-2,back=l.plotBack+2;
+  const yardLeft=l.officeLeft+2,yardRight=(l.workforce?l.workforce.left:l.plotRight)-2,back=l.plotBack+2;
   box(group,'#c2d4cf',[yardRight-yardLeft,.06,-38-back],[(yardLeft+yardRight)/2,.12,(back-38)/2]);
   for(let x=yardLeft+2;x<yardRight-1;x+=3.5){
-   for(const side of [-1,1])box(group,'#eff5e5',[.06,.015,4.5],[x+side*1.55,.16,-41]);
-   if(Math.floor(x)%3!==0){const car=makeCar(['#86b8c3','#f4e9cc','#4789b1'][Math.floor(x)%3]);car.position.set(x,.2,-41);car.userData.crack.visible=false;car.rotation.y=Math.PI;group.add(car);}
+   for(const side of [-1,1])box(group,'#eff5e5',[.06,.015,4.5],[x+side*1.55,.16,-63]);
+   if(Math.floor(x)%3!==0){const car=makeCar(['#86b8c3','#f4e9cc','#4789b1'][Math.floor(x)%3]);car.position.set(x,.2,-63);car.userData.crack.visible=false;car.rotation.y=Math.PI;group.add(car);}
   }
-  const count=back<-59?(state.garageLevel>=14?2:1):0;
+  const count=back<-90?(state.garageLevel>=14?2:1):0;
   for(let i=0;i<count;i++){
    const x=yardLeft+7+i*18,z=back+9;if(x+7>yardRight)continue;
    roundedBox(group,'#d3e0e5',[13.5,3.8,12],[x,2.1,z]);box(group,'#327c9c',[13.8,.25,12.3],[x,4.08,z]);

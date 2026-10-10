@@ -1,3 +1,4 @@
+import {productKeys} from '../models/Products.js';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
@@ -94,6 +95,9 @@ export function makeProduct(key,parent,size=1){
   const group=new THREE.Group();group.scale.setScalar(size);parent?.add(group);
   if(key==='glass'){roundedBox(group,'#9adddf',[.85,.65,.045],[0,0,0],true);}
   else if(key==='carMirror'||key==='motoMirror'){for(const side of key==='motoMirror'?[-1,1]:[1]){box(group,'#344d61',[.05,.4,.045],[side*.18,-.1,0]);roundedBox(group,'#2185bf',[.38,.21,.12],[side*.18,.14,0],true);box(group,'#afdfec',[.29,.15,.018],[side*.18,.14,.075],true);}}
+  else if(key==='wipers'){for(const side of [-1,1]){const blade=box(group,'#244c5c',[.7,.06,.08],[0,side*.16,0]);blade.rotation.z=side*.1;box(group,'#9fcbd1',[.35,.025,.03],[0,side*.16,.05]);}}
+  else if(key==='lights'){roundedBox(group,'#24435a',[.72,.4,.3],[0,0,0]);roundedBox(group,'#fff2a9',[.62,.3,.04],[0,0,.17],true);}
+  else if(key==='sensors'){roundedBox(group,'#6a60a0',[.52,.42,.32],[0,0,0]);cylinder(group,'#62d4de',.13,.08,[0,.04,.19],10).rotation.x=Math.PI/2;}
   else{const part=cylinder(group,'#536c7a',.25,.22,[0,0,0],12);part.rotation.x=Math.PI/2;cylinder(group,'#b5c8cc',.12,.35,[0,0,0],10).rotation.x=Math.PI/2;box(group,'#dfaf62',[.68,.12,.55],[0,-.3,0]);}
   return group;
 }
@@ -131,7 +135,7 @@ export function makePerson(shirt, cap = false, withGlass = false, withPackage = 
     box(arm, shirt, [.13,.2,.16], [0,-.1,0]);
     const elbow=new THREE.Group();elbow.position.y=-.2;box(elbow,'#e6b18b',[.11,.17,.12],[0,-.075,0]);roundedBox(elbow,'#e6b18b',[.115,.075,.13],[0,-.18,.025]);arm.add(elbow);forearms.push(elbow);body.add(arm);arms.push(arm);
   }
-  const carried={};if(withGlass)for(const key of ['glass','carMirror','motoMirror','parts']){const product=makeProduct(key,body);product.position.set(0,1,.4);product.visible=false;carried[key]=product;}
+  const carried={};if(withGlass)for(const key of productKeys){const product=makeProduct(key,body);product.position.set(0,1,.4);product.visible=false;carried[key]=product;}
   const pane=carried.glass,parcel=new THREE.Group();
   box(parcel,'#d7a05c',[.68,.5,.48],[0,.91,.37]);box(parcel,'#f9dda7',[.09,.51,.49],[0,.91,.37]);box(parcel,'#f5f6f0',[.24,.14,.012],[.17,.98,.615]);body.add(parcel);parcel.visible=false;
   const scanner=withPackage?box(forearms[1],'#193d56',[.11,.15,.07],[0,-.1,.08]):null;
@@ -239,6 +243,7 @@ export function batchStatic(group) {
     const combined = mergeGeometries(geometries);
     for (const geometry of combined ? [combined] : geometries) {
       const mesh = new THREE.Mesh(geometry, meshMaterial);
+      mesh.userData.batched=true;
       mesh.castShadow = true; mesh.receiveShadow = true; group.add(mesh);
     }
     if (combined) geometries.forEach(geometry => geometry.dispose());

@@ -32,7 +32,7 @@ export class CameraController {
   bounds(){
     if(!this.state)return {left:-65,right:65,back:-60,front:55};
     const l=shopLayout(this.state);
-    return {left:(l.plotLeft??l.left)-18,right:(l.plotRight??l.itRight??l.officeRight??l.right)+18,back:(l.plotBack??l.clBack??l.back)-18,front:l.front+30};
+    return {left:this.state.garageLevel>=15?-165:this.state.garageLevel>=6?-Math.max(115,this.state.garageLevel*12):(l.plotLeft??l.left)-18,right:(l.plotRight??l.itRight??l.officeRight??l.right)+(this.state.garageLevel>=6?80:18),back:(l.plotBack??l.clBack??l.back)-(this.state.garageLevel>=15?100:80),front:this.state.garageLevel>=16?250:this.state.garageLevel>=15?170:this.state.garageLevel>=6?95:l.front+55};
   }
   pan(dx,dy){
     const b=this.bounds(),d=Math.SQRT1_2;

@@ -1,3 +1,6 @@
+import {ShiftClock} from './ShiftClock.js';
+import {StaffOperationsModel} from './StaffOperationsModel.js';
+import {activeStaff} from './Workforce.js';
 import {advance,travel} from './routes.js';
 import {NavigationSystem,touchesRectangle,actorRadius} from './NavigationSystem.js';
 import {CityTrafficModel,vehicleBounds,vehicleCollisionBlocks,vehicleSpeedLimit,signalSpeedLimit,obeysSignals} from './CityTrafficModel.js';
@@ -6,6 +9,7 @@ import {LogisticsModel} from './LogisticsModel.js';
 import {OrdersModel} from './OrdersModel.js';
 import {WeatherModel} from './WeatherModel.js';
 import {ITModel} from './ITModel.js';
+import {AdvancedOperationsModel} from './AdvancedOperationsModel.js';
 import {CampusModel} from './CampusModel.js';
 import {PRODUCTS,availableProducts} from './Products.js';
 import {bayX,workerSeat,loungeSpot,deskX,productPoint,rackPoint,shopLayout,shopObstacles,interiorWaypoints,roomOf,driveway,roadExit} from './ShopLayout.js';
@@ -15,12 +19,12 @@ const person=(x,z)=>({x,z,facing:0,walk:0,moving:false,phase:'idle',carrying:fal
 
 export class GarageModel{
   constructor(economy){this.economy=economy;this.reset();}
-  reset(){this.navigation=new NavigationSystem();this.cars=[];this.workers=[];this.cashiers=[];this.city=new CityTrafficModel(this.economy.state);this.office=new OfficeModel(this.economy);this.it=new ITModel(this.economy);this.campus=new CampusModel(this.economy);this.logistics=new LogisticsModel(this.economy);this.orders=new OrdersModel(this.economy);this.weather=new WeatherModel(this.economy);this.stockOwners=new Map();this.rackOwners=new Map();this.nextId=0;this.arrival=1;this.time=0;this.events=[];this.payments=0;this.localSupply={};this.syncStaff();this.configureNavigation();}
+  reset(){this.clock=new ShiftClock(this.economy);this.staff=new StaffOperationsModel(this.economy);this.navigation=new NavigationSystem();this.cars=[];this.workers=[];this.cashiers=[];this.city=new CityTrafficModel(this.economy.state);this.office=new OfficeModel(this.economy);this.it=new ITModel(this.economy);this.campus=new CampusModel(this.economy);this.advanced=new AdvancedOperationsModel(this.economy);this.logistics=new LogisticsModel(this.economy);this.orders=new OrdersModel(this.economy);this.weather=new WeatherModel(this.economy);this.stockOwners=new Map();this.rackOwners=new Map();this.nextId=0;this.arrival=1;this.time=0;this.events=[];this.payments=0;this.localSupply={};this.syncStaff();this.configureNavigation();this.staff.sync(this);}
   get cashier(){return this.cashiers[0];}
   workerHome(id){return workerSeat(id);}
   syncStaff(){
-    while(this.workers.length<this.economy.state.workers){const id=this.workers.length,home=workerSeat(id);if(this.people().some(a=>Math.hypot(a.x-home.x,a.z-home.z)<.95))break;this.workers.push({...person(home.x,home.z),id,carId:null,seated:true,facing:home.facing,orderId:null});}
-    while(this.cashiers.length<this.economy.state.cashiers){const id=this.cashiers.length;this.cashiers.push({...person(deskX(id),-8.2),id:`cashier-${id}`,index:id,carId:null});}
+    while(this.workers.length<activeStaff(this.economy.state,'worker')){const id=this.workers.length,home=workerSeat(id);if(this.people().some(a=>Math.hypot(a.x-home.x,a.z-home.z)<.95))break;this.workers.push({...person(home.x,home.z),id,carId:null,seated:true,facing:home.facing,orderId:null});}
+    while(this.cashiers.length<activeStaff(this.economy.state,'cashier')){const id=this.cashiers.length;this.cashiers.push({...person(deskX(id),-8.2),id:`cashier-${id}`,index:id,carId:null});}
     this.logistics.sync(this);this.office.sync(this);this.it.sync(this);this.campus.sync(this);
   }
   configureNavigation(invalidate=true){
@@ -33,17 +37,21 @@ export class GarageModel{
     if(s.garageLevel>=14)this.navigation.roomBounds.factory={minX:l.academyLeft,maxX:l.factoryRight,minZ:-36,maxZ:-13.5};
     this.navSignature=this.layoutSignature();
   }
-  layoutSignature(){const s=this.economy.state;return [s.garageLevel,s.bays,s.workers,s.logisticsWorkers,s.cashiers,s.storeExpansion,s.warehouseExpansion,s.officeComputers,s.businessArea,s.itWorkers,s.trainingLevel,s.productionLines].join(':');}
-  move(actor,point,speed=1.25,via=[]){let cursor=actor;const path=[];for(const target of [...via,point]){path.push(...interiorWaypoints(cursor,target,this.economy.state));if(target!==point)path.push(target);cursor=target;}this.navigation.moveTo(actor,point.x,point.z,speed,path);}
-  productivity(){const s=this.economy.state;return (1+s.productivity*.45)*(1+s.storeExpansion*.05+s.officeChairs*.05)*this.economy.trainingBonus();}
-  claimStock(product,worker){if(this.stockOwners.has(product)&&this.stockOwners.get(product)!==worker)return false;this.stockOwners.set(product,worker);return true;}
+  layoutSignature(){const s=this.economy.state;return [s.garageLevel,s.bays,s.workers,s.logisticsWorkers,s.cashiers,s.storeExpansion,s.warehouseExpansion,s.officeComputers,s.businessArea,s.salesWorkers,s.itWorkers,s.itComputers,s.factoryWorkers,s.trainingLevel,s.productionLines,s.servers,s.cloudPlatform,s.officeChairs].join(':');}
+  move(actor,point,speed=1.25,via=[]){let cursor=actor;const path=[];for(const target of [...via,point]){path.push(...interiorWaypoints(cursor,target,this.economy.state));if(target!==point)path.push(target);cursor=target;}this.navigation.moveTo(actor,point.x,point.z,Math.min(3,speed),path);}
+  productivity(){const s=this.economy.state;return (1+s.productivity*.45)*(1+s.storeExpansion*.05+s.officeChairs*.05)*this.economy.trainingBonus()*this.economy.teamEfficiency('worker');}
+  stockStation(product){return ['wipers','lights','sensors'].includes(product)?'parts':product;}
+  claimStock(product,worker){product=this.stockStation(product);if(this.stockOwners.has(product)&&this.stockOwners.get(product)!==worker)return false;this.stockOwners.set(product,worker);return true;}
   claimRack(index,worker){if(this.rackOwners.has(index)&&this.rackOwners.get(index)!==worker)return false;this.rackOwners.set(index,worker);return true;}
   releaseStations(){
+    const present=new Set(this.people());
+    for(const [key,actor] of this.stockOwners)if(!present.has(actor))this.stockOwners.delete(key);
+    for(const [key,actor] of this.rackOwners)if(!present.has(actor))this.rackOwners.delete(key);
     for(const [product,actor] of this.stockOwners)if(!['stock','picking','orderStock','orderPicking','refill','unloadStock'].includes(actor.phase)&&Math.hypot(actor.x-productPoint(product).x,actor.z-productPoint(product).z)>1.25)this.stockOwners.delete(product);
     for(const [index,actor] of this.rackOwners)if(!['toTruck','collecting','toFactory','collectFactory','toScan','scanning','toRack','storing','toWarehouse','collectStock','toAudit','auditing'].includes(actor.phase)&&Math.hypot(actor.x-rackPoint(index).x,actor.z-rackPoint(index).z)>1.25)this.rackOwners.delete(index);
   }
   spawn(){
-    const access=driveway(this.economy.state);if(this.vehicles().some(v=>Math.hypot(v.x+58,v.z-access.arrival)<5.5))return;
+    if(!this.clock.day)return;const access=driveway(this.economy.state);if(this.vehicles().some(v=>Math.hypot(v.x+58,v.z-access.arrival)<5.5))return;
     const s=this.economy.state,bay=Array.from({length:s.bays},(_,i)=>i).find(i=>!this.cars.some(c=>c.bay===i&&c.phase!=='gone'&&!(c.phase==='leaving'&&c.x>bayX(i)+4)));if(bay===undefined)return;
     const resumed=s.orders.find(o=>o.source==='counter'&&o.carId===null&&o.phase!=='delivered');const id=this.nextId++,keys=availableProducts(s),product=resumed?.product||keys[id%keys.length],motorcycle=product==='motoMirror',pickup=!!resumed||s.garageLevel>=2&&id%5===3;
     const car={id,bay,product,vehicleType:motorcycle?'moto':'car',halfLength:motorcycle?1.1:1.6,halfWidth:motorcycle?.49:.94,color:palette[id%palette.length],phase:'arriving',x:-58,z:access.arrival,facing:Math.PI/2,speed:0,isCar:true,glass:product==='glass'?0:1,progress:0,driver:{...person(0,0),id:`client-${id}`,visible:false},wait:0,patience:40+(id%4)*4,paid:false,complained:false,workerId:null,cashierId:null,pickup,bill:this.economy.saleValue(product)};
@@ -51,7 +59,7 @@ export class GarageModel{
     travel(car,[[-58,access.arrival],[bayX(bay),access.arrival],[bayX(bay),-1.6]],5.2);this.cars.push(car);
   }
   sendToLounge(car){car.driver.phase='toLounge';car.driver.complaining=false;this.move(car.driver,loungeSpot(car.bay),1.25);}
-  vehicles(){return [...this.cars,...this.orders.couriers,...this.city.cars,...this.logistics.trucks];}
+  vehicles(){return [...this.cars,...this.orders.couriers,...this.city.cars,...this.logistics.trucks,...this.advanced.trucks,...this.staff.vehicles()];}
   needsManeuver(car){const s=this.economy.state;return (typeof car.id==='number'||car.delivery)&&(['reversing'].includes(car.phase)||car.phase==='leaving'&&car.x<shopLayout(s).plotRight+3||car.phase==='arriving'&&car.z<driveway(s).arrival-.35);}
   maneuverAllowed(car){
     if(!this.needsManeuver(car))return true;
@@ -61,32 +69,37 @@ export class GarageModel{
     // Waiting time breaks equal priorities; numeric arrival order stays stable.
     const priority=v=>v.phase==='leaving'?0:v.phase==='reversing'?1:2;
     const order=v=>v.maneuverSince??this.time;
-    return !conflicts.some(v=>priority(v)<priority(car)||priority(v)===priority(car)&&(order(v)<order(car)||order(v)===order(car)&&String(v.id).localeCompare(String(car.id),undefined,{numeric:true})<0));
+    return !conflicts.some(v=>{
+      // Vehicles already in the exit lane follow their leader. A reservation
+      // held by a car behind must never prevent that leader from clearing it.
+      if(v.phase==='leaving'&&car.phase==='leaving'&&Math.abs(v.z-car.z)<1)return v.x>car.x+.1;
+      return priority(v)<priority(car)||priority(v)===priority(car)&&(order(v)<order(car)||order(v)===order(car)&&String(v.id).localeCompare(String(car.id),undefined,{numeric:true})<0);
+    });
   }
   advanceVehicle(actor,dt){
     if(this.needsManeuver(actor))actor.maneuverSince??=this.time;else actor.maneuverSince=null;
     if(!this.maneuverAllowed(actor)){actor.speed=0;actor.moving=false;actor.waitReason='manobra';actor.stoppedFor=(actor.stoppedFor||0)+dt;return false;}
     const snapshot={...actor},vehicles=this.vehicles();actor.targetSpeed=signalSpeedLimit(actor,this.time,this.city.roads,vehicleSpeedLimit(actor,vehicles,(actor.baseSpeed??=actor.targetSpeed)*this.weather.roadSpeed));const complete=advance(actor,dt),body=vehicleBounds(actor);
-    const red=!obeysSignals(snapshot,actor,this.time,this.city.roads),pedestrian=this.people().some(p=>touchesRectangle(p.x,p.z,actorRadius(p),body))||this.city.pedestrians.some(p=>touchesRectangle(p.x,p.z,.36,body)),traffic=vehicles.some(other=>other!==actor&&vehicleCollisionBlocks(snapshot,actor,other));
+    const red=!obeysSignals(snapshot,actor,this.time,this.city.roads),pedestrian=[...this.people(),...this.staff.externalPeople()].some(p=>touchesRectangle(p.x,p.z,actorRadius(p),body))||this.city.pedestrians.some(p=>touchesRectangle(p.x,p.z,.36,body)),traffic=vehicles.some(other=>other!==actor&&vehicleCollisionBlocks(snapshot,actor,other));
     if(red||pedestrian||traffic){Object.assign(actor,snapshot);actor.speed=0;actor.moving=false;actor.waitReason=red?'semáforo':pedestrian?'pedestre':'trânsito';actor.stoppedFor=(actor.stoppedFor||0)+dt;return false;}actor.waitReason=null;actor.stoppedFor=0;return complete;
   }
-  people(){return [...this.cashiers,...this.workers,...this.logistics.workers,...this.office.people(),...this.it.workers,...this.campus.people(),...this.orders.workers(),...this.cars.filter(c=>c.driver.visible).map(c=>c.driver)];}
+  people(){return [...this.cashiers,...this.workers,...this.logistics.workers,...this.office.people(),...this.it.workers,...this.campus.people(),...this.orders.workers(),...this.cars.filter(c=>c.driver.visible).map(c=>c.driver)].filter(a=>!a.offDuty);}
   finishWorker(worker){worker.working=false;worker.carrying=false;worker.carryingBox=false;worker.phase='returning';worker.stockAddress=null;this.move(worker,workerSeat(worker.id),this.productivity());}
   startRefill(worker){
     const s=this.economy.state,refilling=this.workers.filter(w=>['toWarehouse','collectStock','waitRefill','refill','unloadStock'].includes(w.phase));
     if(refilling.length>=Math.max(1,Math.ceil(this.workers.length/3)))return false;
-    const required=product=>Math.max(4,this.economy.frontCapacity()/3,...s.orders.filter(o=>o.phase==='queued'&&o.product===product).map(o=>o.quantity-o.collected));
+    const required=product=>Math.max(4,this.economy.frontCapacity()/3,this.cars.filter(c=>!c.pickup&&c.phase==='waiting'&&c.product===product).length+2,...s.orders.filter(o=>o.phase==='queued'&&o.product===product).map(o=>o.quantity-o.collected));
     const keys=availableProducts(s).sort((a,b)=>(this.economy.stock(a)-required(a))-(this.economy.stock(b)-required(b)));
-    for(const product of keys){if(this.economy.stock(product)>required(product)||refilling.some(w=>w.refillProduct===product))continue;
+    for(const product of keys){if(this.economy.stock(product)+s.stockInTransit.filter(t=>t.product===product).reduce((n,t)=>n+t.units,0)>required(product)||refilling.some(w=>w.refillProduct===product))continue;
       const index=this.economy.warehouseStock(product).map((units,i)=>({units,i})).filter(bin=>bin.units>0&&!this.rackOwners.has(bin.i)).sort((a,b)=>b.units-a.units)[0]?.i;if(index===undefined)continue;
       this.claimRack(index,worker);worker.phase='toWarehouse';worker.refillProduct=product;worker.product=product;worker.stockAddress=index;worker.carId=null;this.move(worker,rackPoint(index),this.productivity());return true;
     }return false;
   }
   tick(dt){
-    if(!dt)return;this.time+=dt;this.weather.tick(dt);this.syncStaff();this.releaseStations();this.events=this.events.filter(e=>this.time-e.time<1.8);this.arrival-=dt;
+    if(!dt)return;this.clock.tick(dt);this.time+=dt;this.weather.tick(dt);this.syncStaff();this.releaseStations();this.events=this.events.filter(e=>this.time-e.time<1.8);this.arrival-=dt;
     if(this.navSignature!==this.layoutSignature())this.configureNavigation();
-    this.city.configure(this.economy.state);this.city.tick(dt,[...this.cars,...this.orders.couriers,...this.logistics.trucks],this.weather.roadSpeed);
-    this.logistics.tick(dt,this);this.office.tick(dt,this);this.it.tick(dt,this);this.campus.tick(dt,this);this.orders.tick(dt,this);
+    this.city.configure(this.economy.state);this.city.tick(dt,[...this.cars,...this.orders.couriers,...this.logistics.trucks,...this.advanced.trucks,...this.staff.vehicles()],this.weather.roadSpeed);
+    this.staff.tick(dt,this);this.logistics.tick(dt,this);this.office.tick(dt,this);this.it.tick(dt,this);this.campus.tick(this.clock.day?dt:0,this);this.orders.tick(dt,this);this.advanced.tick(dt,this);
     if(this.arrival<=0){this.spawn();this.arrival=this.economy.state.garageLevel===1?8:Math.max(3,9-this.economy.state.workers*.45);}
     for(const car of this.cars){
       if(car.phase==='arriving'&&this.advanceVehicle(car,dt)){const door={x:car.x-(car.vehicleType==='moto'?1:1.65),z:car.z-.05};if(this.people().some(a=>Math.hypot(a.x-door.x,a.z-door.z)<.95)){car.waitReason='desembarque';continue;}const order=this.economy.state.orders.find(o=>o.id===car.orderId);car.phase=car.pickup?(order?.phase==='counterReady'?'finished':'working'):'waiting';car.driver.x=car.x-(car.vehicleType==='moto'?1:1.65);car.driver.z=car.z-.05;car.driver.visible=true;this.configureNavigation();this.sendToLounge(car);}
@@ -101,15 +114,15 @@ export class GarageModel{
       if(client.angry&&!car.complained&&client.phase==='waiting'&&car.workerId!==null){const worker=this.workers[car.workerId];if(worker?.phase==='installing'){car.complained=true;client.phase='toComplain';this.move(client,{x:worker.x,z:worker.z+1.2},1.4);}}
       if(client.phase==='toComplain'&&client.reached){const worker=this.workers[car.workerId];client.phase='complaining';client.complaining=true;client.timer=3;client.facing=Math.atan2(worker.x-client.x,worker.z-client.z);}
       if(client.phase==='complaining'){client.timer-=dt;if(client.timer<=0&&car.phase!=='finished')this.sendToLounge(car);}
-      if(client.phase==='toCashier'&&client.reached){client.phase='paying';client.facing=Math.PI;client.timer=1.8;this.cashiers[car.cashierId].phase='paying';}
+      if(client.phase==='toCashier'&&client.reached){client.phase='paying';client.facing=Math.PI;client.timer=1.8/this.economy.teamEfficiency('cashier');this.cashiers[car.cashierId].phase='paying';}
       if(client.phase==='paying'){client.timer-=dt;if(client.timer<=0){const cashier=this.cashiers[car.cashierId];if(!car.paid){car.paid=true;this.economy.sale(car.bill);if(car.pickup){const order=s.orders.find(o=>o.id===car.orderId);if(order)this.economy.completeOrder(order,true);client.carryingBox=true;}this.payments++;this.events.push({id:`payment-${car.id}`,kind:'payment',x:(client.x+cashier.x)/2,z:(client.z+cashier.z)/2,time:this.time});}car.phase='boarding';client.phase='returning';client.angry=false;cashier.phase='idle';cashier.releaseAfter=client;this.move(client,{x:car.x-(car.vehicleType==='moto'?1:1.65),z:car.z-.05},1.3);}}
       if(client.phase==='returning'&&client.reached){client.visible=false;car.phase='reversing';travel(car,[[car.x,car.z],[car.x,driveway(s).exit]],1.6,true);car.baseSpeed=1.6;}
     }
-    for(const cashier of this.cashiers){if(cashier.releaseAfter&&Math.hypot(cashier.releaseAfter.x-cashier.x,cashier.releaseAfter.z+5.9)>1.2){cashier.carId=null;cashier.releaseAfter=null;}if(cashier.carId!==null)continue;const car=this.cars.find(c=>c.phase==='finished'&&['waiting','toLounge','toComplain','complaining'].includes(c.driver.phase)&&!this.navigation.isCrossing(c.driver));if(car){cashier.carId=car.id;car.cashierId=cashier.index;car.phase='paying';car.driver.phase='toCashier';car.driver.complaining=false;car.driver.angry=false;this.move(car.driver,{x:cashier.x+(cashier.index===1?.18:0),z:-5.9},1.2);}}
-    for(const worker of this.workers){const car=this.cars.find(c=>c.id===worker.carId);
+    for(const cashier of this.cashiers){if(cashier.offDuty||cashier.commuting)continue;if(cashier.releaseAfter&&Math.hypot(cashier.releaseAfter.x-cashier.x,cashier.releaseAfter.z+5.9)>1.2){cashier.carId=null;cashier.releaseAfter=null;}if(cashier.carId!==null)continue;const car=this.cars.find(c=>c.phase==='finished'&&['waiting','toLounge','toComplain','complaining'].includes(c.driver.phase)&&!this.navigation.isCrossing(c.driver));if(car){cashier.carId=car.id;car.cashierId=cashier.index;car.phase='paying';car.driver.phase='toCashier';car.driver.complaining=false;car.driver.angry=false;this.move(car.driver,{x:cashier.x+(cashier.index===1?.18:0),z:-5.9},1.2);}}
+    for(const worker of this.workers){if(worker.offDuty||worker.commuting)continue;const car=this.cars.find(c=>c.id===worker.carId);
       if(worker.phase==='idle'){
         if(s.garageLevel>=2&&this.startRefill(worker))continue;
-        const job=this.cars.find(c=>!c.pickup&&c.phase==='waiting'&&this.economy.stock(c.product)>0&&!this.stockOwners.has(c.product));
+        const job=this.cars.filter(c=>!c.pickup&&c.phase==='waiting'&&this.economy.stock(c.product)>0&&!this.stockOwners.has(this.stockStation(c.product))).sort((a,b)=>Number(b.driver.angry)-Number(a.driver.angry)||b.wait-a.wait||a.id-b.id)[0];
         if(s.garageLevel>=2&&(worker.lastTask!=='order'||!job)&&this.orders.startJob(worker,this)){worker.lastTask='order';continue;}
         if(job&&this.claimStock(job.product,worker)){worker.lastTask='service';job.phase='working';job.workerId=worker.id;worker.carId=job.id;worker.product=job.product;worker.phase='stock';this.move(worker,productPoint(job.product),.95*p);}
       }
@@ -118,7 +131,7 @@ export class GarageModel{
       else if(worker.phase==='toCar'&&worker.reached){worker.phase='installing';worker.working=true;worker.carrying=true;worker.facing=Math.PI/2;worker.duration=PRODUCTS[car.product].duration/(1+s.tools*.25);worker.timer=worker.duration;}
       else if(worker.phase==='installing'){worker.timer-=dt*p;car.progress=Math.min(1,1-worker.timer/worker.duration);if(car.product==='glass')car.glass=car.progress;if(worker.timer<=0){car.phase='finished';this.finishWorker(worker);}}
       else if(worker.phase==='toWarehouse'&&worker.reached){worker.phase='collectStock';worker.timer=2;worker.facing=Math.PI;worker.working=true;}
-      else if(worker.phase==='collectStock'){worker.timer-=dt;if(worker.timer<=0){const stocks=this.economy.warehouseStock(worker.refillProduct);worker.units=Math.min(6+s.stockRacks*2,stocks[worker.stockAddress],this.economy.frontCapacity()-this.economy.stock(worker.refillProduct));stocks[worker.stockAddress]-=worker.units;this.economy.recordMovement('replenish',worker.refillProduct,worker.units,'A-'+String(worker.stockAddress+1).padStart(2,'0'),'Loja',String(worker.id));s.stockInTransit.push({worker:worker.id,product:worker.refillProduct,units:worker.units});this.economy.emit();worker.working=false;worker.carryingBox=true;worker.phase='waitRefill';this.move(worker,workerSeat(worker.id),p);}}
+      else if(worker.phase==='collectStock'){worker.timer-=dt;if(worker.timer<=0){const stocks=this.economy.warehouseStock(worker.refillProduct);worker.units=Math.min(6+s.stockRacks*2,stocks[worker.stockAddress],Math.max(0,this.economy.frontCapacity()-this.economy.stock(worker.refillProduct)-s.stockInTransit.filter(t=>t.product===worker.refillProduct).reduce((n,t)=>n+t.units,0)));stocks[worker.stockAddress]-=worker.units;this.economy.recordMovement('replenish',worker.refillProduct,worker.units,'A-'+String(worker.stockAddress+1).padStart(2,'0'),'Loja',String(worker.id));s.stockInTransit.push({worker:worker.id,product:worker.refillProduct,units:worker.units});this.economy.emit();worker.working=false;worker.carryingBox=true;worker.phase='waitRefill';this.move(worker,workerSeat(worker.id),p);}}
       else if(worker.phase==='waitRefill'&&this.claimStock(worker.refillProduct,worker)){worker.phase='refill';this.move(worker,productPoint(worker.refillProduct),.95*p);}
       else if(worker.phase==='refill'&&worker.reached){worker.phase='unloadStock';worker.working=true;worker.facing=Math.PI;worker.timer=2;}
       else if(worker.phase==='unloadStock'){worker.timer-=dt;if(worker.timer<=0){this.economy.replenish(worker.refillProduct,worker.units);s.stockInTransit=s.stockInTransit.filter(t=>t.worker!==worker.id);worker.units=0;worker.refillProduct=null;this.economy.emit();this.finishWorker(worker);}}

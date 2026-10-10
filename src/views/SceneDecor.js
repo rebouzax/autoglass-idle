@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {activeStaff} from '../models/Workforce.js';
 import {box,roundedBox,cylinder,tree,batchStatic} from './LowPolyAssets.js';
 
 const shades=['#5a9dc1','#dfb270','#de9783','#8ebaaa','#afb5d5'];
@@ -31,7 +32,7 @@ export function addShopFinish(parent,state,l){
   for(const z of [l.back+.15,l.front-.16])box(decor,'#d4e4eb',[width-.3,.035,.095],[(l.left+l.right)/2,.308,z]);
   box(decor,'#c0d3dd',[.07,.11,l.front-l.back-.3],[l.left+.16,.34,(l.front+l.back)/2]);
   for(let i=0;i<state.bays;i++){
-    const x=1.25+i*3.6;
+    const x=1.25+i*5.2;
     for(let row=0;row<5;row++)box(decor,'#c7d3d6',[2.65,.01,.035],[x,.327,.95-row*1.08]);
     for(const side of [-1,1])box(decor,'#387e9a',[.19,.018,4.25],[x+side*1.3,.336,-1.28]);
   }
@@ -41,7 +42,7 @@ export function addShopFinish(parent,state,l){
     box(decor,'#ecf8fd',[.065,.055,1.94],[-2.69,1.82,z]);
     box(decor,'#287cb1',[.065,.5,.055],[-2.69,1.58,z+.96]);
   }
-  for(let i=0;i<state.cashiers;i++){
+  for(let i=0;i<activeStaff(state,'cashier');i++){
     const x=[-8.15,-5.8,-3.55][i];
     box(decor,'#eff7fa',[1.43,.52,.024],[x,.82,-6.703]);
     box(decor,'#2b83bf',[1.43,.1,.028],[x,.51,-6.697]);
@@ -84,15 +85,15 @@ function smallPark(parent,x,z,width=8){
 }
 
 export function addCityDetails(city,state,l,roads,extent,buildings=[]){
-  const occupied=(x,z,r=2)=>x+r>l.plotLeft&&x-r<l.plotRight&&z+r>l.plotBack&&z-r<6.6+(state.storeExpansion||0);
+  const occupied=(x,z,r=2)=>(x+r>l.plotLeft&&x-r<l.plotRight&&z+r>l.plotBack&&z-r<6.6+(state.storeExpansion||0))||(state.garageLevel>=15&&(Math.abs(z-32)<r+4||Math.abs(x+46)<r+4||x>-84-r&&x<-46+r&&z>l.plotBack-5&&z<5))||(state.garageLevel>=16&&z>43-r);const curb=state.garageLevel>=6?4.6:3.42;
   for(const z of roads.zs){
     for(const side of [-1,1]){
-      box(city,'#aabac0',[extent,.11,.14],[0,.095,z+side*3.42]);
-      box(city,'#ecf2ed',[extent,.065,.16],[0,.165,z+side*3.45]);
+      box(city,'#aabac0',[extent,.11,.14],[0,.095,z+side*curb]);
+      box(city,'#ecf2ed',[extent,.065,.16],[0,.165,z+side*(curb+.03)]);
       for(let x=-extent/2+4;x<extent/2-4;x+=14){
-        if(roads.xs.some(v=>Math.abs(x-v)<8)||occupied(x,z+side*5.6,1.2))continue;
-        box(city,'#c3d2c6',[2.25,.11,1.3],[x,.06,z+side*5.6]);
-        tree(city,x,z+side*5.6,.83);
+        if(roads.xs.some(v=>Math.abs(x-v)<8)||occupied(x,z+side*(curb+2.2),1.2))continue;
+        box(city,'#c3d2c6',[2.25,.11,1.3],[x,.06,z+side*(curb+2.2)]);
+        tree(city,x,z+side*(curb+2.2),.83);
         if(side===-1){
           cylinder(city,'#456c82',.055,3.5,[x+3,1.78,z-4.12],6);
           roundedBox(city,'#edf6ef',[.52,.1,.18],[x+3.19,3.55,z-4.12]);
@@ -101,11 +102,11 @@ export function addCityDetails(city,state,l,roads,extent,buildings=[]){
     }
   }
   for(const x of roads.xs)for(const side of [-1,1]){
-    box(city,'#aabac0',[.14,.11,extent],[x+side*3.42,.095,0]);
-    box(city,'#ecf2ed',[.16,.065,extent],[x+side*3.45,.165,0]);
+    const d=state.garageLevel>=16?extent/2+43:extent,cz=state.garageLevel>=16?(43-extent/2)/2:0;box(city,'#aabac0',[.14,.11,d],[x+side*curb,.095,cz]);
+    box(city,'#ecf2ed',[.16,.065,d],[x+side*(curb+.03),.165,cz]);
     for(let z=-extent/2+8;z<extent/2-4;z+=16){
-      if(roads.zs.some(v=>Math.abs(z-v)<8)||occupied(x+side*5.8,z,1.3))continue;
-      tree(city,x+side*5.8,z,.8);
+      if(roads.zs.some(v=>Math.abs(z-v)<8)||occupied(x+side*(curb+2.4),z,1.3))continue;
+      tree(city,x+side*(curb+2.4),z,.8);
     }
   }
   for(const [x,z] of [[-11,25],[-40,4],[43,23],[-40,-30],[11,-39]]){

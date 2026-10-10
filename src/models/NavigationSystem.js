@@ -60,7 +60,7 @@ export class NavigationSystem {
     for (const door of this.doors.values()) { door.queue = door.queue.filter(a => a !== actor); if (door.owner === actor) door.owner = null; }
     actor.navTargets = []; actor.goal = null; actor.route = []; actor.yieldTargets = null; actor.waitingDoor = false;
     actor.doorHold = null; actor.portalEntry = null; actor.doorCooldown = 0; actor.approachPoint = null; actor.approachFor = null;
-    actor.doorRetreat = null; actor.yieldWaitFor = null; actor.yieldWait = 0; actor.waitingTarget = false;
+    actor.doorRetreat = null; actor.yieldWaitFor = null; actor.yieldWait = 0; actor.waitingTarget = false;actor.approachWait=0;
     actor.holdRetryAt = 0; actor.holdOwner = null;
   }
   gate(actor) {
@@ -82,6 +82,9 @@ export class NavigationSystem {
   }
   release(actor, id) { const door = this.doors.get(id); if (door?.owner === actor) door.owner = null; actor.portalEntry = null; actor.doorHold = null; actor.doorRetreat = null; }
   configure(obstacles, bounds, invalidate = true) {
+    const signature=obstacles.map(o=>[o.minX,o.maxX,o.minZ,o.maxZ].join(',')).join(';');
+    if(!invalidate&&signature===this.obstacleSignature){if(typeof bounds==='number')this.bounds.maxX=bounds;else Object.assign(this.bounds,bounds);return;}
+    this.obstacleSignature=signature;
     this.obstacles = obstacles; this.index = spatialIndex(obstacles);
     this.gridWalkable.clear();
     if (typeof bounds === 'number') this.bounds.maxX = bounds; else Object.assign(this.bounds, bounds);
@@ -205,6 +208,21 @@ export class NavigationSystem {
   }
   actorPath(actor, goal = actor.goal, allowApproach = true) {
     const r = actorRadius(actor);
+    // After an expansion, furniture can cover an old interaction point.
+    // Walk to a nearby reachable spot in the same room instead of retrying forever.
+    if(goal===actor.goal&&goal&&!goal.portal&&!this.clearPoint(goal.x,goal.z,r)){
+      const room=this.roomOf?.(goal);
+      let replacement=null;
+      for(const distance of [.45,.75,1.05]){
+        for(let angle=0;angle<Math.PI*2;angle+=Math.PI/4){
+          const p={x:goal.x+Math.cos(angle)*distance,z:goal.z+Math.sin(angle)*distance};
+          if(this.roomOf&&this.roomOf(p)!==room||!this.clearPoint(p.x,p.z,r)||(this.crowd||[]).some(other=>other!==actor&&Math.hypot(other.x-p.x,other.z-p.z)<r+actorRadius(other)+.05))continue;
+          if(this.path(actor,p,r).length){replacement=p;break;}
+        }
+        if(replacement)break;
+      }
+      if(replacement){actor.navTargets[0]=replacement;actor.goal=replacement;goal=replacement;}
+    }
     const extra = (this.crowd || []).filter(other => other !== actor && (!other.goal || other.reached || other.working || other.waitingDoor || other.stallTime > 1)
       && Math.hypot(actor.x - other.x, actor.z - other.z) > r + actorRadius(other) + .04)
       .map(other => ({ x: other.x, z: other.z, radius: actorRadius(other) + .03 }));
@@ -292,10 +310,26 @@ export class NavigationSystem {
     actor.blocked = 0; actor.progressTimer = 0; actor.progressX = actor.x; actor.progressZ = actor.z;
     actor.stallTime = 0; actor.retryIn = 0; actor.order = ++this.sequence;
   }
+  crowdKey(actor){return `${Math.floor(actor.x/BUCKET)},${Math.floor(actor.z/BUCKET)}`;}
+  indexActor(actor){
+    const key=this.crowdKey(actor),old=actor.crowdBucket;
+    if(old===key&&this.crowdIndex.get(key)?.has(actor))return;
+    this.crowdIndex.get(old)?.delete(actor);
+    if(!this.crowdIndex.has(key))this.crowdIndex.set(key,new Set());
+    this.crowdIndex.get(key).add(actor);actor.crowdBucket=key;
+  }
+  nearbyActors(actor,r=2){
+    const found=[];
+    for(let x=Math.floor((actor.x-r)/BUCKET);x<=Math.floor((actor.x+r)/BUCKET);x++)
+      for(let z=Math.floor((actor.z-r)/BUCKET);z<=Math.floor((actor.z+r)/BUCKET);z++)
+        for(const other of this.crowdIndex.get(`${x},${z}`)||[])if(other!==actor)found.push(other);
+    return found;
+  }
   tick(actors, dt) {
     if (!(dt > 0)) return;
     this.time += dt;
     this.crowd = actors;
+    this.crowdIndex=new Map();for(const actor of actors)this.indexActor(actor);
     for (const [id, door] of this.doors) {
       door.queue = door.queue.filter(a => actors.includes(a) && a.goal?.portal === id);
       if (door.owner && (!actors.includes(door.owner) || door.owner.goal?.portal !== id)) door.owner = null;
@@ -328,7 +362,13 @@ export class NavigationSystem {
       if (awaitingTarget && !holding && !actor.doorRetreat) {
         const occupied = actors.some(other => other !== actor
           && Math.hypot(other.x - actor.goal.x, other.z - actor.goal.z) < actorRadius(actor) + actorRadius(other) + .05);
-        if (occupied) { actor.route = []; actor.blocked = 0; actor.stallTime = 0; continue; }
+        if (occupied) {
+          actor.approachWait=(actor.approachWait||0)+dt;actor.blocked=0;actor.stallTime=0;
+          if(actor.approachWait>4){actor.approachPoint=null;actor.approachFor=null;actor.approachWait=0;actor.retryIn=0;actor.route=this.actorPath(actor);}
+          else actor.route=[];
+          continue;
+        }
+        actor.approachWait=0;
         actor.approachPoint = null; actor.approachFor = null; actor.retryIn = 0;
       }
       if (crossing && !actor.doorRetreat && !awaitingTarget
@@ -366,25 +406,26 @@ export class NavigationSystem {
       }
       const heading = Math.atan2(waypoint.z - actor.z, waypoint.x - actor.x);
       const distance = Math.min((actor.moveSpeed || .9) * dt, Math.hypot(waypoint.x - actor.x, waypoint.z - actor.z));
+      const neighbors=this.nearbyActors(actor,actorRadius(actor)+2+distance);
       let chosen = null, score = Infinity;
       for (const angle of [0, .4, -.4, .8, -.8, 1.2, -1.2, 1.55, -1.55]) {
         const x = actor.x + Math.cos(heading + angle) * distance, z = actor.z + Math.sin(heading + angle) * distance;
         if (!this.escapeSegment(actor, { x, z }, actorRadius(actor), p => this.allowedPoint(actor, destination, p))) continue;
-        if (actors.some(other => {
+        if (neighbors.some(other => {
           if (other === actor) return false;
           const before = Math.hypot(actor.x - other.x, actor.z - other.z), after = Math.hypot(x - other.x, z - other.z), radius = actorRadius(actor) + actorRadius(other) + .025;
           if (before < radius) return after <= before + .00001 || segmentDistance(other, actor, { x, z }) < before - .00001;
           return segmentDistance(other, actor, { x, z }) < radius;
         })) continue;
         let penalty = Math.abs(angle) * .035 + (angle < 0 ? .00005 : 0);
-        for (const other of actors) if (other !== actor) { const separation = Math.hypot(x - other.x, z - other.z); if (separation < 1.25) penalty += (1.25 - separation) * .035; }
+        for (const other of neighbors) if (other !== actor) { const separation = Math.hypot(x - other.x, z - other.z); if (separation < 1.25) penalty += (1.25 - separation) * .035; }
         const candidate = Math.hypot(x - waypoint.x, z - waypoint.z) + penalty;
         if (candidate < score) { score = candidate; chosen = { x, z }; }
       }
       if (chosen) {
         actor.vx = (chosen.x - actor.x) / dt; actor.vz = (chosen.z - actor.z) / dt;
         actor.facing = Math.atan2(actor.vx, actor.vz); actor.walk = (actor.walk || 0) + Math.hypot(actor.vx, actor.vz) * dt * 5.5;
-        actor.x = chosen.x; actor.z = chosen.z; actor.moving = distance > .001; actor.blocked = 0;
+        actor.x = chosen.x; actor.z = chosen.z; actor.moving = distance > .001; actor.blocked = 0;this.indexActor(actor);
       } else { actor.blocked += dt; actor.stallTime = (actor.stallTime || 0) + dt; }
     }
   }

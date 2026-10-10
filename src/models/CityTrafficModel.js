@@ -111,8 +111,8 @@ export class CityTrafficModel {
     while(this.cars.length<carCount){const i=this.cars.length;this.cars.push({id:`traffic-${i}`,color:['#f0b666','#8cd0cf','#6d98c9'][i%3],lane:i%4,speed:0,targetSpeed:3.2,glass:1,path:placeholder,distance:Math.floor(i/4)*placeholder.length/(carCount/4),...sampleRoute(placeholder,0)});}
     while(this.pedestrians.length<peopleCount){const i=this.pedestrians.length;this.pedestrians.push({id:`pedestrian-${i}`,lane:i%2,walk:0,moving:false,carrying:false,path:placeholder,distance:Math.floor(i/2)*placeholder.length/(peopleCount/2),...sampleRoute(placeholder,0)});}
     const front = roads.zs[0], back = roads.zs[1], left = roads.xs[0], right = roads.xs[1];
-    const paths = [route([[span, front + 1.5], [-span, front + 1.5]]), route([[right - 1.5, span], [right - 1.5, -span]]),
-      route([[-span, back + 1.5], [span, back + 1.5]]), route([[left + 1.5, -span], [left + 1.5, span]])];
+    const paths = [route([[span, front + 1.5], [-span, front + 1.5]]), route([[right - 1.5, state.garageLevel>=16?38:span], [right - 1.5, -span]]),
+      route([[-span, back + 1.5], [span, back + 1.5]]), route([[left + 1.5, -span], [left + 1.5, state.garageLevel>=16?38:span]])];
     for (const [index,car] of this.cars.entries()) {
       const fraction = Math.floor(index/4)/(this.cars.length/4);
       car.path = paths[car.lane]; car.distance = fraction * car.path.length; Object.assign(car, sampleRoute(car.path, car.distance));
@@ -129,7 +129,15 @@ export class CityTrafficModel {
     const vehicles = [...this.cars, ...garageCars];
     const ordered = [...this.cars].sort((a, b) => (b.stoppedFor || 0) - (a.stoppedFor || 0));
     for (const car of ordered) {
-      const desired = signalSpeedLimit(car, this.time, this.roads, vehicleSpeedLimit(car, vehicles, 3.2 * roadSpeed));
+      let desired = signalSpeedLimit(car, this.time, this.roads, vehicleSpeedLimit(car, vehicles, 3.2 * roadSpeed));
+      // Freight crossings reserve space before either vehicle enters it.
+      // A car already crossing clears first; following cars wait behind the stop line.
+      for(const truck of garageCars.filter(v=>String(v.id).startsWith('freight')&&v.path)){
+        const carX=Math.abs(Math.sin(car.facing))>.8,truckX=Math.abs(Math.sin(truck.facing))>.8;if(carX===truckX)continue;
+        const ahead=(carX?truck.x-car.x:truck.z-car.z)*Math.sign(carX?Math.sin(car.facing):Math.cos(car.facing));
+        const cargoAhead=(truckX?car.x-truck.x:car.z-truck.z)*Math.sign(truckX?Math.sin(truck.facing):Math.cos(truck.facing));
+        if(ahead>6&&ahead<24&&cargoAhead>-5&&cargoAhead<16)desired=Math.min(desired,Math.sqrt(Math.max(0,ahead-7)*4));
+      }
       const speed = Math.max(0, car.speed + Math.max(-4.5 * dt, Math.min(2.4 * dt, desired - car.speed)));
       const nextDistance = car.distance + speed * dt, wrapping = nextDistance >= car.path.length;
       const next = sampleRoute(car.path, wrapping ? 0 : nextDistance), candidate = { ...car, ...next };

@@ -1,48 +1,55 @@
 import * as THREE from 'three';
+import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
+import {buildCampus,buildFulfillment} from './CampusDecor.js';
+import {GameEffects} from './GameEffects.js';
+import {addBrandPanel,buildITDepartment,buildBusinessDisplay} from './CompanyDecor.js';
+import {buildShowroom,addShopFinish,addCityDetails,addHouseDetail} from './SceneDecor.js';
+import {PRODUCTS,productKeys} from '../models/Products.js';
 import {CameraController} from '../services/CameraController.js';
-import {bayX,workerSeat,drawerX,loungeSpot,deskX,addresses,shopLayout} from '../models/ShopLayout.js';
-import {box,cylinder,material,tree,label,shopSign,makeCar,makePerson,animatePerson,batchStatic,emojiBubble,chair,makeTruck} from './LowPolyAssets.js';
+import {bayX,workerSeat,drawerX,loungeSpot,deskX,getAddresses,shopLayout,drawerZ,cityRoads,officeDesk,meetingSeat,productPoint,packingBench,dispatchBay,driveway,docks,scanStation} from '../models/ShopLayout.js';
+import {box,roundedBox,cylinder,material,tree,shopSign,makeCar,makeMotorcycle,makeProduct,makePerson,animatePerson,batchStatic,emojiBubble,chair,makeTruck} from './LowPolyAssets.js';
 
 export class GarageScene {
   constructor(canvas,pad){
-    this.canvas=canvas;this.time=0;this.carMeshes=new Map();this.workerMeshes=new Map();this.driverMeshes=new Map();this.cashierMeshes=new Map();this.receiverMeshes=new Map();this.bubbles=new Map();
-    this.scene=new THREE.Scene();this.scene.background=new THREE.Color('#b8e3f3');this.world=new THREE.Group();this.showroom=new THREE.Group();this.scene.add(this.world,this.showroom);
-    this.camera=new THREE.OrthographicCamera(-20,20,12,-12,.1,230);this.controls=new CameraController(canvas,this.camera,pad);
+    this.canvas=canvas;this.time=0;this.carMeshes=new Map();this.workerMeshes=new Map();this.driverMeshes=new Map();this.cashierMeshes=new Map();this.receiverMeshes=new Map();this.officeMeshes=new Map();this.itMeshes=new Map();this.campusMeshes=new Map();this.truckMeshes=new Map();this.doors=[];this.bubbles=new Map();
+    this.scene=new THREE.Scene();this.scene.background=new THREE.Color('#c3e8ef');this.world=new THREE.Group();this.showroom=new THREE.Group();this.scene.add(this.world,this.showroom);
+    this.camera=new THREE.OrthographicCamera(-20,20,12,-12,.1,420);this.controls=new CameraController(canvas,this.camera,pad);
     this.renderer=new THREE.WebGLRenderer({canvas,antialias:true});this.renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=THREE.PCFShadowMap;
-    this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.2;
-    this.scene.add(new THREE.HemisphereLight('#fffef0','#97b2bc',2));this.sun=new THREE.DirectionalLight('#fff0d8',3);this.sun.position.set(-18,34,20);this.sun.castShadow=true;
-    this.sun.shadow.mapSize.set(2048,2048);Object.assign(this.sun.shadow.camera,{left:-42,right:42,top:42,bottom:-42,near:.5,far:110});this.sun.shadow.normalBias=.05;this.sun.shadow.bias=-.0002;this.scene.add(this.sun);
-    this.buildTraffic();this.buildPedestrians();
-    this.menuCar=makeCar('#4aa4f1');this.menuCar.position.set(4,.015,-1);this.menuCar.scale.setScalar(1.7);this.menuCar.userData.crack.visible=false;this.showroom.add(this.menuCar);
-    box(this.showroom,'#0865bb',[80,.1,80],[0,-.235,0]).castShadow=false;cylinder(this.showroom,'#1a7aca',3.5,.25,[4,-.06,-1],64);
-    const ring=new THREE.Mesh(new THREE.TorusGeometry(3.28,.025,8,80),material('#8ed6ff'));ring.rotation.x=Math.PI/2;ring.position.set(4,.075,-1);this.showroom.add(ring);
+    this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=.98;const environment=new RoomEnvironment(),pmrem=new THREE.PMREMGenerator(this.renderer);this.environment=pmrem.fromScene(environment,.045);this.scene.environment=this.environment.texture;this.scene.environmentIntensity=.18;environment.dispose();pmrem.dispose();
+    this.scene.add(new THREE.HemisphereLight('#fffef0','#97b2bc',1.15));this.sun=new THREE.DirectionalLight('#fff0d8',2.1);this.sun.position.set(-18,34,20);this.sun.castShadow=true;
+    this.sun.shadow.mapSize.set(innerWidth<680?1024:2048,innerWidth<680?1024:2048);Object.assign(this.sun.shadow.camera,{left:-42,right:42,top:42,bottom:-42,near:.5,far:110});this.sun.shadow.normalBias=.04;this.sun.shadow.bias=-.0002;this.sun.shadow.radius=2;this.scene.add(this.sun);
+    this.buildTraffic();this.buildPedestrians();this.effects=new GameEffects(this.world);
+    this.menuCar=makeCar('#53a9df');this.menuCar.userData.crack.visible=false;this.showroom.add(this.menuCar);this.menuStage=buildShowroom(this.showroom,this.menuCar);
     this.resize();this.observer=new ResizeObserver(()=>this.resize());this.observer.observe(canvas.parentElement);
   }
-  removeStructure(group){if(!group)return;group.traverse(o=>{if(o.isSprite||o.userData.sign){o.material.map?.dispose();o.material.dispose();o.geometry?.dispose();}else if(o.geometry?.type==='ConeGeometry')o.geometry.dispose();});group.removeFromParent();}
+  removeStructure(group){if(!group)return;group.traverse(o=>{if(o.isSprite||o.userData.sign){o.material.map?.dispose();o.material.dispose();o.geometry?.dispose();}else if(['ConeGeometry','IcosahedronGeometry'].includes(o.geometry?.type))o.geometry.dispose();});group.removeFromParent();}
   buildCity(state){
     if(this.city){this.city.traverse(o=>o.geometry?.dispose());this.city.removeFromParent();}
-    const city=new THREE.Group();this.city=city;this.world.add(city);const l=shopLayout(state),extent=state.garageLevel===3?156:state.garageLevel===2?132:116;
-    box(city,'#68ba52',[extent,.22,extent],[0,-.21,-2]).castShadow=false;box(city,'#c2b598',[extent,1,extent],[0,-.83,-2]);
-    for(const z of [10,-24,38]){
-      box(city,'#e5e9df',[extent,.12,9],[0,-.01,z]);box(city,'#576c7c',[extent,.1,6.4],[0,.06,z]);for(let x=-extent/2+2;x<extent/2;x+=5)box(city,'#f5efce',[2.4,.015,.11],[x,.12,z]);
+    const city=new THREE.Group();this.city=city;this.world.add(city);const l=shopLayout(state),roads=cityRoads(state),extent=Math.max(116+state.garageLevel*12,l.plotRight*2+44,Math.abs(l.plotBack)*2+44);
+    box(city,'#72b881',[extent,.22,extent],[0,-.21,-2]).castShadow=false;box(city,'#c9b698',[extent,1,extent],[0,-.83,-2]);
+    for(const z of roads.zs){
+      box(city,'#dce6df',[extent,.12,9],[0,-.01,z]);box(city,'#455d6d',[extent,.1,6.4],[0,.06,z]);for(let x=-extent/2+2;x<extent/2;x+=5)if(!roads.xs.some(v=>Math.abs(x-v)<5))box(city,'#f1efcf',[2.4,.015,.11],[x,.12,z]);
     }
-    for(const x of [-22,22]){
-      box(city,'#e5e9df',[9,.12,extent],[x,-.01,0]);box(city,'#576c7c',[6.4,.1,extent],[x,.07,0]);for(let z=-extent/2+2;z<extent/2;z+=5)box(city,'#f5efce',[.11,.015,2.4],[x,.13,z]);
-      for(const z of [10,-24,38])for(let i=-2;i<=2;i++){box(city,'#faf7e8',[.4,.025,2],[x+i*.75,.145,z-4.2]);box(city,'#faf7e8',[2,.025,.4],[x+4.2,.145,z+i*.75]);}
+    for(const x of roads.xs){
+      box(city,'#dce6df',[9,.12,extent],[x,-.01,0]);box(city,'#455d6d',[6.4,.1,extent],[x,.07,0]);for(let z=-extent/2+2;z<extent/2;z+=5)if(!roads.zs.some(v=>Math.abs(z-v)<5))box(city,'#f1efcf',[.11,.015,2.4],[x,.13,z]);
+      for(const z of roads.zs)for(let i=-2;i<=2;i++){box(city,'#faf7e8',[.4,.025,2],[x+i*.75,.145,z-4.2]);box(city,'#faf7e8',[2,.025,.4],[x+4.2,.145,z+i*.75]);}
     }
     const buildings=[[-8,23,5.1,4.5,'#f9dca0'],[7,23,5,3.5,'#b8dcd4'],[-36,-10,6,6.5,'#c4dba5'],[-36,25,6.5,8,'#eabf8f'],[36,23,7,9,'#a0cfe8'],[36,-8,6.5,6.5,'#e8b3a4'],[-36,-36,7,10,'#a1bddb'],[-10,-36,6.5,8,'#f0c478'],[8,-36,7,9,'#d8b3a2'],[37,-36,7,8,'#b0d3be'],[-47,24,4,3.2,'#f1d9ad'],[47,0,4.5,3.5,'#bedcc4'],[-46,-2,4,3,'#ebae7e']];
-    if(state.garageLevel<3)buildings.push([-15,-5,4.1,3.2,'#f4d1a0'],[-15,-14,4.1,4.1,'#eeaf86']);
+    if(state.garageLevel<2)buildings.push([-15,-5,4.1,3.2,'#f4d1a0'],[-15,-14,4.1,4.1,'#eeaf86']);
     if(state.garageLevel>=2)for(const x of [-50,50])for(const z of [-39,47])buildings.push([x,z,5.8,7,'#aad3d9']);
-    if(state.garageLevel===3)for(const x of [-65,-8,8,65])for(const z of [-52,54])buildings.push([x,z,6.3,8,'#e9c18f']);
-    for(const args of buildings)this.house(city,...args);
-    for(const [x,z] of [[-16,2],[-9,17],[15,20],[-30,-17],[-31,18],[30,18],[31,-17],[-46,-22],[44,-18],[-12,-30],[12,-30],[28,-4],[-30,-4]])tree(city,x,z,1.1);
-    if(state.garageLevel<3){box(city,'#dfd9c3',[7,.14,7],[8,.03,-15]);cylinder(city,'#edeee3',1.2,.24,[8,.25,-15],12);cylinder(city,'#81cdd9',1,.1,[8,.39,-15],12);tree(city,13,-17,1);}
+    if(state.garageLevel>=3)for(const x of [-65,-8,8,65])for(const z of [-52,54])buildings.push([x,z,6.3,8,'#e9c18f']);
+    if(state.garageLevel>=6)for(let x=-extent/2+12;x<extent/2-10;x+=18)for(const z of [-extent/2+13,extent/2-13])buildings.push([x,z,8,10+(Math.abs(x)%7),'#a7cbdc']);
+    if(state.garageLevel>=4)for(let x=-58;x<l.plotRight+28;x+=15){buildings.push([x,26,5.8,Math.min(7,3+state.garageLevel*.32),['#a3cfd5','#e8c68f','#b4c4de'][Math.abs(Math.floor(x/15))%3]]);if(state.garageLevel>=9)buildings.push([x,l.plotBack-17,7.5,12+(state.garageLevel-9)*1.7,'#8fbdd2']);}
+    const plotFront=driveway(state).front,occupied=(x,z,r=2)=>x+r>l.plotLeft&&x-r<l.plotRight&&z+r>l.plotBack&&z-r<plotFront;
+    const built=[];for(const args of buildings){const [x,z,w]=args;if(occupied(x,z,w/2+1)||roads.xs.some(v=>Math.abs(x-v)<w/2+5)||roads.zs.some(v=>Math.abs(z-v)<w/2+5))continue;const height=state.garageLevel===1?Math.min(args[3],4.2):Math.min(22,args[3]*(.55+state.garageLevel*.07));this.house(city,args[0],args[1],args[2],height,args[4]);built.push(args);}addCityDetails(city,state,l,roads,extent,built);
+    for(const [x,z] of [[-16,2],[-9,17],[15,20],[-30,-17],[-31,18],[30,18],[31,-17],[-46,-22],[44,-18],[-12,-30],[12,-30],[28,-4],[-30,-4]])if(!occupied(x,z,1.5))tree(city,x,z,1.1);
+    if(state.garageLevel<2){box(city,'#dfd9c3',[7,.14,7],[8,.03,-15]);cylinder(city,'#edeee3',1.2,.24,[8,.25,-15],12);cylinder(city,'#81cdd9',1,.1,[8,.39,-15],12);tree(city,13,-17,1);}
     for(const x of [-16,16,-28,28])for(const z of [5,-19,33]){cylinder(city,'#c7d6db',.065,3.8,[x,1.9,z],6);box(city,'#d7e2e2',[.65,.11,.28],[x+.2,3.83,z]);}
-    const plotWidth=l.plotRight-l.plotLeft,depth=6.6-l.plotBack;
-    box(city,'#9daeb2',[plotWidth,.14,depth],[(l.plotLeft+l.plotRight)/2,.03,(l.plotBack+6.6)/2]);
-    box(city,'#d0cfc1',[plotWidth,.1,1.2],[(l.plotLeft+l.plotRight)/2,.13,6.1]);
-    for(const x of [l.plotLeft,l.plotRight]){box(city,'#f1d389',[.09,.025,depth-1],[x,.12,(l.plotBack+5.6)/2]);}
-    if(state.garageLevel===3){for(let z=-19;z<-11;z+=1.5)box(city,'#e8d372',[.09,.025,.75],[-16.8,.12,z]);tree(city,17.5,-19,1);}
+    const plotWidth=l.plotRight-l.plotLeft,depth=plotFront-l.plotBack;
+    box(city,'#9caeb8',[plotWidth,.14,depth],[(l.plotLeft+l.plotRight)/2,.03,(l.plotBack+plotFront)/2]);
+    box(city,'#e4e8de',[plotWidth,.1,1.2],[(l.plotLeft+l.plotRight)/2,.13,plotFront-.5]);
+    for(const x of [l.plotLeft,l.plotRight]){box(city,'#f1d389',[.09,.025,depth-1],[x,.12,(l.plotBack+plotFront-1)/2]);}
+    if(state.garageLevel>=2){for(let z=l.clBack+1;z<-11;z+=1.5)box(city,'#e8d372',[.09,.025,.75],[-20.6,.12,z]);}
     batchStatic(city);
   }
   house(parent,x,z,width,height,color){
@@ -50,70 +57,120 @@ export class GarageScene {
     if(height<5){const roof=new THREE.Mesh(new THREE.ConeGeometry(width*.82,1.2,4),material('#bc775d'));roof.rotation.y=Math.PI/4;roof.position.set(x,height+.75,z);roof.scale.z=.83;roof.castShadow=true;parent.add(roof);}else box(parent,'#b7c0bc',[width-.7,.08,depth-.7],[x,height+.34,z]);
     for(let row=.95;row<height-.25;row+=1.6)for(let column=-width/2+.85;column<width/2;column+=1.45){box(parent,'#f8f4e9',[.84,.93,.08],[x+column,row+.25,z+depth/2+.06]);box(parent,'#599bb1',[.69,.78,.09],[x+column,row+.25,z+depth/2+.11],true);}
     box(parent,'#b8895c',[.75,1.4,.08],[x,.88,z+depth/2+.12]);
+    addHouseDetail(parent,x,z,width,height,depth,color);
   }
   wall(parent,x,z,w,d,height=1){box(parent,'#e8e0cb',[w,height,d],[x,.285+height/2,z]);box(parent,'#6fa5c7',[w+.02,.07,d+.02],[x,.285+height,z]);}
-  doorway(parent,x,z,width,rotation=0){
+  doorway(parent,x,z,width,rotation=0,id='front'){
     const frame=new THREE.Group();frame.position.set(x,.285,z);frame.rotation.y=rotation;parent.add(frame);
     for(const sx of [-width/2,width/2])box(frame,'#1680c7',[.1,2.15,.16],[sx,1.075,0]);box(frame,'#1680c7',[width+.1,.12,.16],[0,2.15,0]);
-    const door=new THREE.Group();door.position.x=-width/2+.04;door.rotation.y=-1.45;frame.add(door);box(door,'#a2d4e0',[width-.13,1.95,.055],[(width-.13)/2,1.05,0],true);box(door,'#ecf7f4',[.06,.12,.055],[width-.27,1.05,.06]);
+    const panels=[];for(const direction of [-1,1]){const panel=new THREE.Group();panel.position.x=direction*width/4;frame.add(panel);box(panel,'#9fcedd',[width/2-.07,1.95,.055],[0,1.05,0],true);box(panel,'#edf6f9',[.035,.9,.06],[direction*width/4*-1+.08,1.05,.06]);panels.push(panel);}this.doors.push({id,x,z,width,panels,open:0});
   }
   buildGarage(state){
     this.removeStructure(this.garage);const garage=new THREE.Group();this.garage=garage;this.world.add(garage);this.roof=new THREE.Group();garage.add(this.roof);
-    const l=shopLayout(state),width=l.right-l.left,center=(l.left+l.right)/2;this.layout=l;this.frontPanes=[];this.warehouseBoxes=[];
-    box(garage,'#f6f2e8',[width,.17,12.4],[center,.2,-3]);
-    this.wall(garage,l.left,-3,.22,12.4);this.wall(garage,l.right,-3,.22,12.4,.72);
-    this.wall(garage,-2.7,-4.1,.2,10.2,1.15);this.wall(garage,-2.7,3.04,.2,.3,1.15);
-    this.wall(garage,-8.85,3.2,2.9,.2);this.wall(garage,-3.75,3.2,2.1,.2);this.doorway(garage,-6.1,3.2,2.6);this.doorway(garage,-2.7,1.95,1.75,Math.PI/2);
-    const loungeLabel=label('ESPERA','#3f7c9a',2);loungeLabel.position.set(-6.7,1.35,-.8);garage.add(loungeLabel);
-    box(garage,'#dce8e7',[6.5,.025,6.5],[-6.5,.298,-1.1]);
+    const l=shopLayout(state),width=l.right-l.left,center=(l.left+l.right)/2,depth=l.front-l.back,mid=(l.front+l.back)/2;this.layout=l;this.frontPanes=[];this.productShelves={};this.readyPackages=[];this.warehouseBoxes=[];this.doors=[];this.displays=[];this.campusDecor=buildCampus(garage,this.roof,state,l,(...args)=>this.doorway(...args));this.fulfillment=buildFulfillment(garage,state,l);
+    box(garage,'#f6f2e8',[width,.17,depth],[center,.2,mid]);
+    for(let x=l.left+2;x<l.right;x+=2)box(garage,'#dce3e2',[.015,.007,depth-.4],[x,.29,mid]);for(let z=l.back+2;z<l.front;z+=2)box(garage,'#dce3e2',[width-.3,.007,.015],[center,.29,z]);
+    this.wall(garage,l.left,mid,.22,depth);
+    if(state.garageLevel<4)this.wall(garage,l.right,mid,.22,depth,.72);else{this.wall(garage,l.right,(l.back-4.85)/2,.22,-4.85-l.back,.72);this.wall(garage,l.right,(-1.95+l.front)/2,.22,l.front+1.95,.72);}
+    this.wall(garage,-2.7,(-9.2+.55)/2,.2,9.75,1.15);if(l.front>3.15)this.wall(garage,-2.7,(3.15+l.front)/2,.2,l.front-3.15,1.15);
+    this.wall(garage,-8.85,l.front,2.9,.2);this.wall(garage,-3.75,l.front,2.1,.2);this.doorway(garage,-6.1,l.front,2.6);this.doorway(garage,-2.7,1.85,2.6,Math.PI/2,'lounge');
+    box(garage,'#dde8ed',[6.7,.025,6.5],[-6.5,.298,-1.1]);
     for(let i=0;i<state.bays;i++){const p=loungeSpot(i);chair(garage,p.x,p.z,p.facing,'#72afcc');}
     for(let i=0;i<state.cashiers;i++){
       const x=deskX(i);box(garage,'#ce9558',[1.6,.85,.65],[x,.71,-7.05]);box(garage,'#f9e2ab',[1.7,.13,.75],[x,1.19,-7.05]);box(garage,'#334e63',[.33,.22,.26],[x+.3,1.38,-7.05]);box(garage,'#63c4df',[.25,.19,.03],[x+.3,1.47,-6.9],true);
     }
-    if(state.garageLevel<3)this.wall(garage,center,l.back,width,.24,2.8);
-    else {this.wall(garage,(l.left+11.7)/2,l.back,11.7-l.left,.24,1);this.wall(garage,(14.5+l.right)/2,l.back,l.right-14.5,.24,1);this.doorway(garage,13.1,l.back,2.8);}
+    if(state.garageLevel<2)this.wall(garage,center,l.back,width,.24,2.8);
+    else {this.wall(garage,(l.left+11.5)/2,l.back,11.5-l.left,.24,1);this.wall(garage,(14.7+l.right)/2,l.back,l.right-14.7,.24,1);this.doorway(garage,13.1,l.back,3.2,0,'cl');}
     box(garage,'#1578c7',[width,.52,.34],[center,3.33,-9.07]);const brand=shopSign('AUTOGLASS INC.',Math.min(7,width*.6));brand.position.set(center,3.33,-8.88);garage.add(brand);
-    box(this.roof,'#2278bc',[width+.6,.25,12.8],[center,3.7,-3]);box(this.roof,'#3a94cf',[width+.6,.08,12.8],[center,3.86,-3]);
+    addBrandPanel(garage,2,l.left+1.6,3.34,-8.85);
+    if(state.garageLevel>=3){const x=-14.6,z=l.front-.8;for(const sx of [-2.5,2.5])cylinder(garage,'#637d91',.12,5.3,[x+sx,2.65,z],8);roundedBox(garage,'#0c579c',[7.2,2.6,.18],[x,5.5,z]);addBrandPanel(garage,6.4,x,5.75,z+.12);const caption=shopSign('AUTOGLASS',4.6);caption.position.set(x,4.72,z+.15);garage.add(caption);}
+    box(this.roof,'#2278bc',[width+.6,.25,depth+.4],[center,3.7,mid]);box(this.roof,'#3a94cf',[width+.6,.08,depth+.4],[center,3.86,mid]);
     for(let i=0;i<state.bays;i++){
       const x=bayX(i);box(garage,'#b5c4c7',[2.9,.025,5.4],[x,.3,-1.2]);for(const side of [-1.43,1.43])box(garage,'#f3cd65',[.055,.035,5.4],[x+side,.32,-1.2]);box(garage,'#f3cd65',[2.9,.035,.06],[x,.32,1.5]);
-      const bayLabel=label(String(i+1),'#4c7887',.6);bayLabel.position.set(x,.4,1.8);garage.add(bayLabel);
     }
-    for(let i=0;i<(state.garageLevel===1?1:4);i++){
-      const x=drawerX(i),seat=workerSeat(i);chair(garage,seat.x,seat.z,seat.facing,'#477ea9');box(garage,'#2379b5',[.58,.85,.65],[x,.71,-8]);for(let d=0;d<3;d++)box(garage,'#92bad0',[.44,.04,.04],[x,.5+d*.22,-7.65]);
+    for(let i=0;i<Math.max(state.workers,state.bays);i++){
+      const x=drawerX(i),seat=workerSeat(i);chair(garage,seat.x,seat.z,seat.facing,'#477ea9');roundedBox(garage,'#2379b5',[.58,.85,.65],[x,.71,drawerZ]);for(let d=0;d<3;d++)box(garage,'#92bad0',[.44,.04,.04],[x,.5+d*.22,drawerZ+.35]);
+      if(state.tools){box(garage,'#3273a2',[.85,.55,.05],[x,1.68,drawerZ-.32]);for(let t=0;t<state.tools;t++)box(garage,'#e5bf55',[.045,.25,.05],[x-.3+t*.17,1.68,drawerZ-.28]);}
     }
     box(garage,'#6895a8',[.65,.16,1.65],[-.9,.43,-5.75]);
-    for(let i=0;i<12;i++){const pane=box(garage,'#9fdae5',[.045,1.1,1.3],[-1.17+i*.048,1.03,-5.75],true);pane.rotation.z=-.12;this.frontPanes.push(pane);}
-    const stockLabel=label('VIDROS','#3f7c9a',1.35);stockLabel.position.set(-.9,1.9,-5.75);garage.add(stockLabel);
-    if(state.garageLevel===3)this.buildWarehouse(garage,state,l);
+    for(let i=0;i<44;i++){const pane=box(garage,'#9fdae5',[.018,1.1,1.3],[-1.18+i*.014,1.03,-5.75],true);pane.rotation.z=-.12;this.frontPanes.push(pane);}
+    cylinder(garage,'#ecb680',.26,.4,[-9.5,.49,-6.1],10);cylinder(garage,'#9bbd77',.33,.8,[-9.5,1.05,-6.1],6);
+    if(state.stockRacks){for(let i=0;i<state.stockRacks;i++)box(garage,'#e5c166',[.07,1.35,.07],[-1.25+i*.15,1,-6.52]);}
+    if(state.garageLevel>=2){
+      for(const key of ['carMirror','motoMirror','parts']){const p=productPoint(key);roundedBox(garage,'#237cba',[1.45,.72,.65],[p.x,.66,p.z-1.1]);box(garage,'#cedee2',[1.52,.1,.7],[p.x,1.06,p.z-1.1]);this.productShelves[key]=[];
+        for(let i=0;i<7;i++){const item=makeProduct(key,garage,.48);item.position.set(p.x-.5+(i%4)*.34,1.19+Math.floor(i/4)*.22,p.z-1.1);this.productShelves[key].push(item);}
+      }
+      roundedBox(garage,'#c38b57',[1.5,.8,.8],[packingBench.x,.7,packingBench.z]);box(garage,'#efdbc1',[1.6,.12,.9],[packingBench.x,1.16,packingBench.z]);cylinder(garage,'#f4d99b',.13,.1,[packingBench.x+.4,1.28,packingBench.z],12);
+      roundedBox(garage,'#237cba',[1.4,.72,.5],[-6.9,.66,-5.8]);
+      for(let i=0;i<4;i++){const parcel=roundedBox(garage,'#d6a569',[.4,.33,.35],[-7.4+(i%3)*.42,1.18+Math.floor(i/3)*.34,-5.8]);this.readyPackages.push(parcel);}
+      for(let i=0;i<state.packingLevel;i++)box(garage,'#55b8ce',[.07,.24,.1],[packingBench.x-.5+i*.24,1.33,packingBench.z+.1]);
+    }
+    if(state.storeExpansion){roundedBox(garage,'#2386c4',[1.4,.75,.5],[l.right-1,.68,l.front-.5]);for(let i=0;i<state.storeExpansion;i++)box(garage,'#aad8e6',[.32,.21,.035],[l.right-1.45+i*.4,.74,l.front-.23],true);}
+    if(state.garageLevel>=2)this.buildWarehouse(garage,state,l);
+    if(state.garageLevel>=4)this.buildOffice(garage,state,l);
+    if(state.garageLevel>=6)this.displays.push(...buildITDepartment(garage,this.roof,state,l));
+    if(state.garageLevel>=4)this.displays.push(...buildBusinessDisplay(garage,state,l));
+    addShopFinish(garage,state,l);
     this.roof.visible=this.inGame?this.roofVisible:true;
   }
   buildWarehouse(garage,state,l){
-    const width=l.right-l.left,center=(l.left+l.right)/2;
-    box(garage,'#e8edeb',[width,.17,11.1],[center,.2,-14.75]);this.wall(garage,center,l.clBack,width,.24,2.2);this.wall(garage,l.right,-14.75,.22,11.1,.85);
-    this.wall(garage,l.left,-18.4,.22,3.8,1.2);this.wall(garage,l.left,-11.3,.22,4.2,1.2);this.doorway(garage,l.left,-15.2,3.1,Math.PI/2);
-    const sign=shopSign('CENTRO LOGÍSTICO',6);sign.position.set(center,2.65,-20.14);garage.add(sign);box(garage,'#1578c7',[width,.4,.2],[center,2.65,-20.25]);
-    box(this.roof,'#2377ad',[width+.6,.25,11.5],[center,3.7,-14.75]);
-    box(garage,'#40617b',[2.4,.9,.8],[-7.6,.73,-16.05]);box(garage,'#bacbd3',[2.6,.12,.95],[-7.6,1.23,-16.05]);box(garage,'#184966',[.5,.33,.16],[-7.6,1.44,-16.05]);box(garage,'#69dce0',[.4,.22,.03],[-7.6,1.46,-15.96]);
-    const receipt=label('RECEBIMENTO','#3582a3',2.5);receipt.position.set(-7.6,2.2,-16.05);garage.add(receipt);
-    for(const [i,rack] of addresses.entries()){
+    const width=l.right-l.left,center=(l.left+l.right)/2,depth=l.back-l.clBack,mid=(l.back+l.clBack)/2;
+    box(garage,'#e8edeb',[width,.17,depth],[center,.2,mid]);this.wall(garage,center,l.clBack,width,.24,2.2);this.wall(garage,l.right,mid,.22,depth,.85);
+    let wallStart=l.clBack;for(const d of [...docks(state)].reverse()){const low=d.z-1.55,high=d.z+1.55;if(low>wallStart)this.wall(garage,l.left,(wallStart+low)/2,.22,low-wallStart,1.2);this.doorway(garage,l.left,d.z,3.1,Math.PI/2,d.id);wallStart=high;
+      box(garage,'#506b81',[3.1,.035,7.8],[d.x,.15,d.z]);for(const sx of [-1.55,1.55])box(garage,'#f5d778',[.06,.025,7.8],[d.x+sx,.18,d.z]);}
+    if(wallStart<l.back)this.wall(garage,l.left,(wallStart+l.back)/2,.22,l.back-wallStart,1.2);
+    box(garage,'#1578c7',[width,.4,.2],[center,2.65,l.clBack+.05]);
+    box(this.roof,'#2377ad',[width+.6,.25,depth+.4],[center,3.7,mid]);
+    for(let i=0;i<Math.max(1,Math.ceil(state.logisticsWorkers/2));i++){const z=-16.05-i*3.6;box(garage,'#40617b',[2.4,.9,.8],[-7.1,.73,z]);box(garage,'#bacbd3',[2.6,.12,.95],[-7.1,1.23,z]);box(garage,'#184966',[.5,.33,.16],[-7.1,1.44,z]);box(garage,'#69dce0',[.4,.22,.03],[-7.1,1.46,z+.09]);}
+    for(const [i,rack] of getAddresses(state).entries()){
       for(const x of [-1.5,1.5])for(const z of [-.5,.5])box(garage,'#206daa',[.1,2.5,.1],[rack.x+x,1.54,rack.z+z]);
       for(const y of [.55,1.25,1.95])box(garage,'#e9bd56',[3.15,.12,1.1],[rack.x,y,rack.z]);
-      const addr=label(rack.id,'#1764a2',1);addr.position.set(rack.x,2.8,rack.z);garage.add(addr);const parcels=[];
+      const parcels=[];
       for(let p=0;p<3;p++){const group=new THREE.Group();box(group,'#d7a05c',[2.1,.47,.78],[rack.x,.85+p*.7,rack.z]);box(group,'#f8e0af',[.15,.48,.79],[rack.x,.85+p*.7,rack.z]);garage.add(group);parcels.push(group);}this.warehouseBoxes[i]=parcels;
     }
-    for(let z=-19;z<-10;z+=1.3)box(garage,'#edc965',[.09,.023,.65],[15.1,.3,z]);
+    for(let z=l.clBack+1;z<-10;z+=1.3)box(garage,'#edc965',[.09,.023,.65],[15.1,.3,z]);
+    if(l.right>23){const x=(18+l.right)/2;box(garage,'#63909f',[l.right-19,.12,1.3],[x,.65,-15]);for(let i=0;i<6;i++)cylinder(garage,'#adbec3',.09,l.right-19,[x,.76,-15.5+i*.2],8).rotation.z=Math.PI/2;}
+  }
+  buildOffice(garage,state,l){
+    const center=(l.officeLeft+l.officeRight)/2,depth=l.officeFront-l.officeBack,mid=(l.officeFront+l.officeBack)/2;
+    box(garage,'#e9dac2',[l.officeRight-l.officeLeft,.17,depth],[center,.2,mid]);box(garage,'#f3f0e7',[.9,.17,2.9],[(l.right+l.officeLeft)/2,.2,-3.4]);
+    for(let x=l.officeLeft+.6;x<l.officeRight;x+=.7)box(garage,'#d5bea0',[.018,.008,depth-.3],[x,.29,mid]);
+    this.wall(garage,l.officeRight,mid,.22,depth,.8);
+    if(state.garageLevel<6)this.wall(garage,center,l.officeBack,l.officeRight-l.officeLeft,.22,2.4);else{const doorX=l.officeRight-2.8;this.wall(garage,(l.officeLeft+doorX-1.5)/2,l.officeBack,doorX-1.5-l.officeLeft,.22,1);this.wall(garage,(doorX+1.5+l.officeRight)/2,l.officeBack,l.officeRight-doorX-1.5,.22,1);this.doorway(garage,doorX,l.officeBack,3,0,'it');}
+    this.wall(garage,(l.officeLeft+3.25+l.officeRight)/2,l.officeFront,l.officeRight-l.officeLeft-3.25,.22,.7);this.doorway(garage,l.officeLeft+1.6,l.officeFront,3.2,0,'dispatch');
+    this.wall(garage,l.officeLeft,(l.officeBack-4.85)/2,.22,-4.85-l.officeBack,.8);this.wall(garage,l.officeLeft,(-1.95+l.officeFront)/2,.22,l.officeFront+1.95,.8);
+    this.doorway(garage,l.officeLeft,-3.4,2.9,Math.PI/2,'office');
+    box(garage,'#167abd',[l.officeRight-l.officeLeft,.42,.21],[center,2.7,l.officeBack+.04]);
+    box(this.roof,'#2184c1',[l.officeRight-l.officeLeft+.4,.25,depth+.4],[center,3.7,mid]);
+    for(let i=0;i<=state.officeComputers;i++){
+      const p=officeDesk(state,i),desk=p.z-1.1;roundedBox(garage,'#f5f2e8',[2.4,.12,.8],[p.x,1.13,desk]);for(const x of [-1,1])box(garage,'#6d8c9c',[.07,.8,.65],[p.x+x,.69,desk]);
+      chair(garage,p.x,p.z,p.facing,state.officeChairs?'#174a6d':'#778d9c');
+      if(state.officeChairs){box(garage,'#174a6d',[.56,.8,.16],[p.x,.94,p.z+.42]);for(const side of [-1,1])box(garage,'#466d85',[.09,.12,.55],[p.x+side*.42,.98,p.z]);}
+      box(garage,'#233d52',[.9,.58,.08],[p.x,1.52,desk-.13]);box(garage,'#8ccee8',[.79,.45,.023],[p.x,1.53,desk-.075],true);box(garage,'#325971',[.045,.18,.045],[p.x,1.22,desk-.13]);roundedBox(garage,'#b3c4cd',[.65,.035,.2],[p.x,1.215,desk+.23]);
+      for(let row=0;row<3;row++)box(garage,'#e4f4f7',[.47-row*.08,.017,.015],[p.x-.1,1.63-row*.09,desk-.06]);
+    }
+    if(state.businessArea){
+      roundedBox(garage,'#395e7a',[1.3,.14,2.4],[l.officeLeft+5.9,1.15,-11.1]);box(garage,'#91a8b6',[.14,.8,1.8],[l.officeLeft+5.9,.69,-11.1]);for(let i=0;i<2;i++){const p=meetingSeat(state,i);chair(garage,p.x,p.z,p.facing,'#537fa0');}
+      box(garage,'#1e435f',[2.4,1.18,.06],[center,1.45,l.officeBack+.15]);box(garage,'#80c9de',[2.18,.94,.03],[center,1.46,l.officeBack+.19]);for(let i=0;i<state.businessArea;i++)box(garage,'#f7d681',[.3,.2+i*.15,.032],[center-.65+i*.55,1.24+i*.07,l.officeBack+.22]);
+    }
+    const count=Math.min(state.garageLevel>=5?3:2,1+Math.floor(state.dispatchLevel/2));
+    for(let i=0;i<count;i++){const p=dispatchBay(state,i);box(garage,'#758d9b',[3.2,.015,3.9],[p.x,.15,p.z]);for(const side of [-1.6,1.6])box(garage,'#f5d778',[.07,.02,3.9],[p.x+side,.17,p.z]);}
+    for(const x of [l.officeLeft+1,l.officeRight-1]){cylinder(garage,'#e0ac76',.3,.4,[x,.49,l.officeBack+1],10);cylinder(garage,'#8bbf75',.44,1.05,[x,1.2,l.officeBack+1],7);}
+    if(state.garageLevel<6){const garden=new THREE.Group();garage.add(garden);box(garden,'#8eb674',[l.officeRight-l.officeLeft-.8,.1,4],[(l.officeLeft+l.officeRight)/2,.16,-16]);for(const x of [l.officeLeft+2,l.officeRight-2])tree(garden,x,-16,.85);}
   }
   buildTraffic(){this.traffic=[];for(let i=0;i<8;i++){const mesh=makeCar(['#edb859','#74baca','#da8170','#e8efea','#97b475','#668dbb'][i%6]);mesh.userData.crack.visible=false;this.world.add(mesh);this.traffic.push(mesh);}}
   buildPedestrians(){this.pedestrians=[];for(let i=0;i<8;i++){const mesh=makePerson(['#ef9d64','#6c96c3','#85b386','#e1b75e'][i%4]);mesh.scale.setScalar(.88);this.world.add(mesh);this.pedestrians.push(mesh);}}
   setMode(inGame,state={bays:1,garageLevel:1}){
-    this.inGame=inGame;this.controls.setEnabled(inGame);this.world.visible=inGame;this.showroom.visible=!inGame;this.scene.background.set(inGame?'#b8e3f3':'#0865bb');this.roofVisible=false;if(this.roof)this.roof.visible=!inGame;this.controls.center(state);
-    if(!inGame){this.controls.target.set(0,0,0);this.controls.height=17;this.controls.resize();}
+    this.inGame=inGame;this.controls.setEnabled(inGame);this.world.visible=inGame;this.showroom.visible=!inGame;this.sun.visible=inGame;this.scene.environmentIntensity=inGame?.22:.64;this.scene.background.set(inGame?'#c3e8ef':'#0c3779');this.roofVisible=false;if(this.roof)this.roof.visible=!inGame;this.controls.center(state);
+    if(!inGame){this.controls.target.set(1.2,0,0);this.controls.height=this.canvas.clientWidth/Math.max(1,this.canvas.clientHeight)<.85?19:14.4;this.controls.resize();}
   }
   setGrowth(state){
-    const signature=`${state.garageLevel}:${state.cashiers}`;
-    if(signature!==this.signature){const stageChanged=this.stage!==state.garageLevel;this.signature=signature;this.stage=state.garageLevel;if(stageChanged)this.buildCity(state);this.buildGarage(state);if(this.inGame&&stageChanged)this.controls.center(state);}
+    const signature=[state.garageLevel,state.bays,state.workers,state.logisticsWorkers,state.cashiers,state.storeExpansion,state.warehouseExpansion,state.stockRacks,state.tools,state.officeChairs,state.officeComputers,state.businessArea,state.packingLevel,state.productRange,state.dispatchLevel,state.productivity,state.itWorkers,state.itComputers,state.servers,state.ecommerce,state.branches,state.fleetContracts,state.distribution,state.insurance,state.marketplace,state.automation,state.international,state.manufacturing,state.holding,state.trainingLevel,state.curriculum,state.productionLines,state.qualityControl,state.wmsLevel].join(':');
+    if(signature!==this.signature){const footprint=[state.garageLevel,state.bays,state.storeExpansion,state.warehouseExpansion].join(':'),stageChanged=this.footprint!==footprint;this.footprint=footprint;this.signature=signature;this.stage=state.garageLevel;if(stageChanged)this.buildCity(state);this.buildGarage(state);if(this.inGame&&stageChanged)this.controls.center(state);const l=this.layout,span=Math.max(42,(l.plotRight-l.plotLeft)*.7,Math.abs(l.plotBack)*.75),cx=(l.plotLeft+l.plotRight)/2,cz=(l.plotBack+l.front)/2;this.sun.position.set(cx-24,52,cz+25);this.sun.target.position.set(cx,0,cz);if(!this.sun.target.parent)this.scene.add(this.sun.target);Object.assign(this.sun.shadow.camera,{left:-span,right:span,top:span,bottom:-span,far:180});this.sun.shadow.camera.updateProjectionMatrix();}
     for(let i=0;i<this.frontPanes.length;i++)this.frontPanes[i].visible=i<state.frontStock;
-    for(let i=0;i<this.warehouseBoxes.length;i++)for(let p=0;p<3;p++)this.warehouseBoxes[i][p].visible=p*4<state.warehouseStocks[i];
+    for(const key of Object.keys(this.productShelves))for(let i=0;i<this.productShelves[key].length;i++)this.productShelves[key][i].visible=i*4<(state.productStocks[key]||0);
+    for(let i=0;i<this.readyPackages.length;i++)this.readyPackages[i].visible=i<state.orders.filter(o=>o.phase==='counterReady').length;
+    for(let i=0;i<this.warehouseBoxes.length;i++){const amounts=productKeys.map(key=>({key,n:key==='glass'?state.warehouseStocks[i]:state.warehouseProducts[key][i]})),total=amounts.reduce((n,p)=>n+p.n,0);for(let p=0;p<3;p++){const mesh=this.warehouseBoxes[i][p];mesh.visible=p*4<total;const key=amounts.sort((a,b)=>b.n-a.n)[0].key;mesh.children[0].material=material(PRODUCTS[key].color);}}
   }
   setShadows(enabled){this.renderer.shadowMap.enabled=enabled;this.scene.traverse(o=>{if(o.isMesh)o.material.needsUpdate=true;});}
   toggleRoof(){this.roofVisible=!this.roofVisible;this.roof.visible=this.roofVisible;return this.roofVisible;}
@@ -123,38 +180,57 @@ export class GarageScene {
     const turn=Math.atan2(Math.sin(car.facing-mesh.rotation.y),Math.cos(car.facing-mesh.rotation.y));mesh.rotation.y+=turn*Math.min(1,dt*7);mesh.userData.roll+=car.speed*dt/.3*(car.reversing?-1:1);
     for(const wheel of mesh.userData.wheels){wheel.rotation.x=mesh.userData.roll;wheel.rotation.y=wheel.userData.front?Math.max(-.28,Math.min(.28,turn)):0;}
     mesh.userData.crack.visible=car.glass<.9;mesh.userData.windshield.material.color.set(car.glass>.5?'#a7e4ee':'#6fa5b7');
+    if(mesh.userData.hood)mesh.userData.hood.rotation.x=THREE.MathUtils.damp(mesh.userData.hood.rotation.x,car.product==='parts'&&car.phase==='working'?-.65:0,5,dt);
+    for(const mirror of mesh.userData.mirrors||[]){mirror.visible=!['carMirror','motoMirror'].includes(car.product)||car.progress>.65||car.delivery;mirror.scale.setScalar(car.phase==='working'&&['carMirror','motoMirror'].includes(car.product)?Math.max(.1,car.progress||0):1);}
+    if(mesh.userData.rider){mesh.userData.rider.visible=!car.driver?.visible;animatePerson(mesh.userData.rider,{x:0,z:-.12,facing:0,walk:0,moving:false,seated:true,phase:'riding'},this.time,.52);}
+    if(mesh.userData.deliveryParcel)mesh.userData.deliveryParcel.visible=car.delivery&&['loading','boarding','reversing','leaving'].includes(car.phase);
+    if(mesh.userData.serviceBar){const bar=mesh.userData.serviceBar;bar.visible=car.phase==='working'&&!car.pickup;bar.quaternion.copy(mesh.quaternion).invert().multiply(this.camera.quaternion);bar.userData.fill.scale.x=Math.max(.01,car.progress||0);bar.userData.fill.position.x=-(1-(car.progress||0))*.64;}
   }
   updatePeople(map,actors,factory,time){
     for(const actor of actors){if(!map.has(actor.id)){const mesh=factory(actor);this.world.add(mesh);map.set(actor.id,mesh);}animatePerson(map.get(actor.id),actor,time,this.personHeight(actor));}
     for(const [id,mesh] of map)if(!actors.some(a=>a.id===id)){mesh.removeFromParent();map.delete(id);}
   }
   update(dt,simulation,active){
-    this.time+=dt;this.controls.update(dt);for(let i=0;i<8;i++){this.updateCar(this.traffic[i],simulation.city.cars[i],active?dt:0);animatePerson(this.pedestrians[i],simulation.city.pedestrians[i],simulation.time,.006);}
-    for(const car of simulation.cars){
-      if(!this.carMeshes.has(car.id)){const mesh=makeCar(car.color),driver=makePerson(['#da8a5b','#80aa93','#9b86b3'][car.id%3]);this.world.add(mesh,driver);this.carMeshes.set(car.id,mesh);this.driverMeshes.set(car.id,driver);}
+    this.time+=dt;this.controls.update(dt);
+    while(this.traffic.length<simulation.city.cars.length){const mesh=makeCar(['#edb859','#74baca','#da8170','#e8efea'][this.traffic.length%4]);mesh.userData.crack.visible=false;this.world.add(mesh);this.traffic.push(mesh);}
+    while(this.pedestrians.length<simulation.city.pedestrians.length){const mesh=makePerson(['#6c96c3','#85b386','#e1b75e'][this.pedestrians.length%3]);mesh.scale.setScalar(.88);this.world.add(mesh);this.pedestrians.push(mesh);}
+    this.traffic.forEach((mesh,i)=>{mesh.visible=!!simulation.city.cars[i];if(mesh.visible)this.updateCar(mesh,simulation.city.cars[i],active?dt:0);});this.pedestrians.forEach((mesh,i)=>{mesh.visible=!!simulation.city.pedestrians[i];if(mesh.visible)animatePerson(mesh,simulation.city.pedestrians[i],simulation.time,.006);});
+    const vehicles=[...simulation.cars,...simulation.orders.couriers];
+    for(const car of vehicles){
+      if(!this.carMeshes.has(car.id)){const mesh=car.vehicleType==='moto'?makeMotorcycle(car.color):makeCar(car.color),driver=makePerson(car.delivery?'#df9e45':['#da8a5b','#80aa93','#9b86b3'][car.id%3]);if(car.delivery)mesh.userData.deliveryParcel=roundedBox(mesh,'#d6a569',[.65,.4,.6],[0,car.vehicleType==='moto'?1.3:1.35,-.65]);else{const bar=new THREE.Group();bar.position.y=2;const backdrop=new THREE.Mesh(new THREE.PlaneGeometry(1.38,.12),new THREE.MeshBasicMaterial({color:'#f4faff'})),fill=new THREE.Mesh(new THREE.PlaneGeometry(1.28,.065),new THREE.MeshBasicMaterial({color:'#41b78b'}));fill.position.z=.01;bar.add(backdrop,fill);bar.userData.fill=fill;mesh.add(bar);mesh.userData.serviceBar=bar;}this.world.add(mesh,driver);this.carMeshes.set(car.id,mesh);this.driverMeshes.set(car.id,driver);}
       this.updateCar(this.carMeshes.get(car.id),car,active?dt:0);const driver=this.driverMeshes.get(car.id);driver.visible=car.driver.visible;animatePerson(driver,car.driver,simulation.time,this.personHeight(car.driver));
     }
-    for(const [id,mesh] of this.carMeshes)if(!simulation.cars.some(c=>c.id===id)){mesh.userData.windshield.material.dispose();mesh.userData.crack.geometry.dispose();mesh.userData.crack.material.dispose();mesh.removeFromParent();this.driverMeshes.get(id).removeFromParent();this.carMeshes.delete(id);this.driverMeshes.delete(id);}
+    for(const [id,mesh] of this.carMeshes)if(!vehicles.some(c=>c.id===id)){mesh.userData.serviceBar?.children.forEach(o=>{o.geometry.dispose();o.material.dispose();});mesh.userData.windshield.material.dispose?.();mesh.userData.crack.geometry?.dispose();mesh.userData.crack.material?.dispose();mesh.removeFromParent();this.driverMeshes.get(id).removeFromParent();this.carMeshes.delete(id);this.driverMeshes.delete(id);}
     this.updatePeople(this.workerMeshes,simulation.workers,()=>makePerson('#2485ce',true,true),simulation.time);
     this.updatePeople(this.cashierMeshes,simulation.cashiers,()=>makePerson('#1979c8',true),simulation.time);
     this.updatePeople(this.receiverMeshes,simulation.logistics.workers,()=>makePerson('#e59a37',false,false,true),simulation.time);
-    this.updateTruck(simulation,active?dt:0);this.updateBubbles(simulation);this.menuCar.rotation.y=-.6+this.time*.13;this.renderer.render(this.scene,this.camera);
+    this.updatePeople(this.officeMeshes,simulation.office.people(),a=>makePerson(a.id==='business-guest'?'#b59568':'#2e577b'),simulation.time);
+    this.updatePeople(this.itMeshes,simulation.it.workers,()=>makePerson('#605bba'),simulation.time);
+    this.updatePeople(this.campusMeshes,simulation.campus.people(),a=>makePerson(a.id.startsWith('factory')?'#e7a44a':a.id==='teacher'?'#247f79':'#74b8aa',a.id.startsWith('factory')),simulation.time);
+    for(const parcel of this.fulfillment?.parcels||[]){parcel.mesh.visible=simulation.orders.active.length>0;parcel.mesh.position.x=parcel.start+(simulation.time*.8+parcel.index*2)%(parcel.end-parcel.start);}for(const [i,arm] of (this.fulfillment?.arms||[]).entries())arm.rotation.y=Math.sin(simulation.time*.7+i)*.55;
+    for(const machine of this.campusDecor?.machines||[]){const operator=simulation.campus.operators[machine.index];if(operator){machine.glass.position.z=THREE.MathUtils.damp(machine.glass.position.z,-28.2+(operator.progress||0)*8.8,2,active?dt:0);machine.glass.material.color.set(operator.phase==='tempering'?'#ffa773':'#98e6e5');}}
+    (this.campusDecor?.panes||[]).forEach((pane,i)=>pane.visible=i*4<simulation.economy.state.factoryStock);
+    for(const display of this.displays||[])if(display.material?.emissive)display.material.emissiveIntensity=.15+.1*Math.sin(this.time*(display.userData.type==='server'?4:1.7));
+    for(const door of this.doors){const near=simulation.people().some(a=>Math.hypot(a.x-door.x,a.z-door.z)<3)||simulation.navigation.doors.get(door.id)?.owner;door.open=THREE.MathUtils.damp(door.open,near?1:0,7,dt);door.panels[0].position.x=-door.width/4-door.open*door.width/2;door.panels[1].position.x=door.width/4+door.open*door.width/2;}
+    this.updateTruck(simulation,active?dt:0);this.updateBubbles(simulation);this.menuCar.rotation.y=-.45+Math.sin(this.time*.11)*.42;this.menuCar.position.y=.26+Math.sin(this.time*.65)*.018;this.effects.update(active?dt:0,simulation,this.scene,this.sun,this.inGame,this.controls.target);this.renderer.render(this.scene,this.camera);
   }
   updateTruck(simulation,dt){
-    const truck=simulation.logistics.truck;
-    if(!truck){if(this.truckMesh){this.removeStructure(this.truckMesh);this.truckMesh=null;}return;}
-    if(!this.truckMesh){this.truckMesh=makeTruck();this.world.add(this.truckMesh);}const mesh=this.truckMesh;mesh.position.set(truck.x,.04,truck.z);
+    for(const truck of simulation.logistics.trucks){
+    if(!this.truckMeshes.has(truck.id)){const mesh=makeTruck();addBrandPanel(mesh,2.6,1.11,1.55,-1,Math.PI/2);this.world.add(mesh);this.truckMeshes.set(truck.id,mesh);}const mesh=this.truckMeshes.get(truck.id);mesh.position.set(truck.x,.04,truck.z);
     const turn=Math.atan2(Math.sin(truck.facing-mesh.rotation.y),Math.cos(truck.facing-mesh.rotation.y));mesh.rotation.y+=turn*Math.min(1,dt*7);mesh.userData.roll+=truck.speed*dt/.4*(truck.reversing?-1:1);for(const w of mesh.userData.wheels)w.rotation.x=mesh.userData.roll;
-    const open=truck.phase==='unloading';mesh.userData.side.rotation.z=THREE.MathUtils.lerp(mesh.userData.side.rotation.z,open?-1.55:0,Math.min(1,dt*3));
-    const pending=simulation.logistics.workers.filter(w=>['toTruck','collecting'].includes(w.phase)).length;for(let i=0;i<8;i++)mesh.userData.cargo[i].visible=i<truck.remaining+pending;
+    const open=truck.phase==='unloading';mesh.userData.side.rotation.z=THREE.MathUtils.lerp(mesh.userData.side.rotation.z,open?1.55:0,Math.min(1,dt*3));
+    const pending=simulation.logistics.workers.filter(w=>w.truckId===truck.id&&['toTruck','collecting'].includes(w.phase)).length;for(let i=0;i<8;i++)mesh.userData.cargo[i].visible=i<truck.remaining+pending;
+    }for(const [id,mesh] of this.truckMeshes)if(!simulation.logistics.trucks.some(t=>t.id===id)){this.removeStructure(mesh);this.truckMeshes.delete(id);}
   }
-  personHeight(actor){const l=this.layout;if(l&&actor.x>l.left&&actor.x<l.right&&actor.z<l.front&&actor.z>(l.stage===3?l.clBack:l.back))return .235;return .05;}
+  personHeight(actor){const l=this.layout;if(l?.stage>=8&&actor.x>l.academyLeft&&actor.x<l.factoryRight&&actor.z<1.6&&actor.z>(l.stage>=14?-36.1:-13.5))return .235;if(l?.stage>=4&&actor.x>l.officeLeft&&actor.x<l.officeRight&&actor.z>(l.stage>=6?l.itBack:l.officeBack)&&actor.z<l.officeFront)return .235;if(l&&actor.x>l.left&&actor.x<l.right&&actor.z<l.front&&actor.z>(l.stage>=2?l.clBack:l.back))return .235;return .05;}
   updateBubbles(simulation){
     const alive=new Set(),bubble=(key,text)=>{alive.add(key);if(!this.bubbles.has(key)){const sprite=emojiBubble(text);this.world.add(sprite);this.bubbles.set(key,sprite);}return this.bubbles.get(key);};
     for(const car of simulation.cars)if(car.driver.visible&&car.driver.angry){const sprite=bubble(`angry-${car.id}`,'😠');sprite.position.set(car.driver.x,2.25,car.driver.z);}
     for(const worker of simulation.logistics.workers)if(worker.scanning){const sprite=bubble(`scan-${worker.id}`,'📦 ✓');sprite.position.set(worker.x,2.3,worker.z);}
-    for(const event of simulation.events){const sprite=bubble(event.id,'💳 ✅'),age=simulation.time-event.time;sprite.position.set(event.x,2.1+age*.4,event.z);sprite.material.opacity=Math.min(1,(1.3-age)*3);}
+    for(const worker of simulation.office.people())if(worker.phase==='calling'){const sprite=bubble('phone-'+worker.id,'☎');sprite.position.set(worker.x,2.35,worker.z);}
+    for(const car of simulation.cars)if(car.driver.visible&&car.phase==='waiting'){const sprite=bubble('product-'+car.id,car.pickup?'📦':car.product==='glass'?'🪟':car.product==='motoMirror'?'🏍️':car.product==='parts'?'⚙️':'🪞');sprite.position.set(car.x,2.55,car.z);}
+    for(const event of simulation.events){const sprite=bubble(event.id,event.kind==='graduation'?'🎓 ✓':event.kind==='production'?'🪟 ✓':event.kind==='online'?'🌐 📦':event.kind==='deploy'?'💻 ✓':event.kind==='order'?'☎ 📦':event.kind==='contract'?'🤝 ✅':event.kind==='delivery'?'📦 ✅':'💳 ✅'),age=simulation.time-event.time;sprite.position.set(event.x,2.1+age*.4,event.z);sprite.material.opacity=Math.min(1,(1.8-age)*3);}
     for(const [key,sprite] of this.bubbles)if(!alive.has(key)){sprite.removeFromParent();sprite.material.map.dispose();sprite.material.dispose();this.bubbles.delete(key);}
   }
-  dispose(){this.observer.disconnect();this.controls.dispose();const geometries=new Set(),materials=new Set();this.scene.traverse(o=>{if(o.geometry)geometries.add(o.geometry);if(o.material)materials.add(o.material);});geometries.forEach(g=>g.dispose());materials.forEach(m=>{m.map?.dispose();m.dispose();});this.renderer.dispose();}
+  dispose(){this.observer.disconnect();this.controls.dispose();const geometries=new Set(),materials=new Set();this.scene.traverse(o=>{if(o.geometry)geometries.add(o.geometry);if(o.material)materials.add(o.material);});geometries.forEach(g=>g.dispose());materials.forEach(m=>{m.map?.dispose();m.dispose();});this.environment.dispose();this.renderer.dispose();}
 }

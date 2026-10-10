@@ -12,7 +12,7 @@ import {addBrandPanel,buildITDepartment,buildBusinessDisplay} from './CompanyDec
 import {buildShowroom,addShopFinish,addCityDetails,addHouseDetail} from './SceneDecor.js';
 import {PRODUCTS,productKeys} from '../models/Products.js';
 import {CameraController} from '../services/CameraController.js';
-import {bayX,workerSeat,drawerX,loungeSpot,deskX,getAddresses,shopLayout,drawerZ,cityRoads,officeDesk,meetingSeat,productPoint,packingBench,dispatchBay,driveway,docks,scanStation,collectorHome} from '../models/ShopLayout.js';
+import {bayX,workerSeat,drawerX,loungeSpot,deskX,getAddresses,shopLayout,drawerZ,cityRoads,officeDesk,meetingSeat,productPoint,packingBench,dispatchBay,driveway,docks,scanStation,collectorHome,employeeHome,parkingGate,onCityRoad,logisticsRoad} from '../models/ShopLayout.js';
 import {box,roundedBox,cylinder,material,tree,shopSign,makeCar,makeMotorcycle,makeProduct,makePerson,animatePerson,batchStatic,emojiBubble,chair,makeTruck} from './LowPolyAssets.js';
 
 export class GarageScene {
@@ -46,18 +46,18 @@ export class GarageScene {
     if(state.garageLevel>=2)for(const x of [-50,50])for(const z of [-39,47])buildings.push([x,z,5.8,7,'#aad3d9']);
     if(state.garageLevel>=3)for(const x of [-65,-8,8,65])for(const z of [-52,54])buildings.push([x,z,6.3,8,'#e9c18f']);
     if(state.garageLevel>=6)for(let x=-extent/2+12;x<extent/2-10;x+=18)for(const z of [-extent/2+13,extent/2-13])buildings.push([x,z,8,10+(Math.abs(x)%7),'#a7cbdc']);
-    if(state.garageLevel>=6)for(let x=-extent/2+18;x<extent/2-15;x+=27)for(let z=-extent/2+35;z<35;z+=27)buildings.push([x,z,6.4,4+Math.min(10,state.garageLevel*.6),['#bfd6b3','#dfc297','#a5cad6'][Math.abs(Math.floor(x/27)+Math.floor(z/27))%3]]);
+    if(state.garageLevel>=6)for(let x=-extent/2+18;x<extent/2-15;x+=36)for(let z=-extent/2+35;z<35;z+=36)buildings.push([x,z,6.4,4+Math.min(10,state.garageLevel*.6),['#bfd6b3','#dfc297','#a5cad6'][Math.abs(Math.floor(x/27)+Math.floor(z/27))%3]]);
     if(state.garageLevel>=4)for(let x=-58;x<l.plotRight+28;x+=15){buildings.push([x,26,5.8,Math.min(7,3+state.garageLevel*.32),['#a3cfd5','#e8c68f','#b4c4de'][Math.abs(Math.floor(x/15))%3]]);if(state.garageLevel>=9)buildings.push([x,l.plotBack-17,7.5,12+(state.garageLevel-9)*1.7,'#8fbdd2']);}
-    const plotFront=driveway(state).front,occupied=(x,z,r=2)=>(x+r>l.plotLeft&&x-r<l.plotRight&&z+r>l.plotBack&&z-r<plotFront)||(state.garageLevel>=15&&x>-84-r&&x<-46+r&&z>l.plotBack-5-r&&z<5+r)||(z<l.plotBack-10&&z>l.plotBack-150&&x>l.plotLeft&&x<l.plotLeft+166)||(state.garageLevel>=16&&z>43-r)||(state.garageLevel>=15&&(Math.abs(z-32)<r+3||Math.abs(x+46)<r+3));
+    const plotFront=driveway(state).front,occupied=(x,z,r=2)=>state.garageLevel>=2&&x>-63-r&&x<-12+r&&Math.abs(z-logisticsRoad(state))<5+r||(x+r>l.plotLeft&&x-r<l.plotRight&&z+r>l.plotBack&&z-r<plotFront)||(state.garageLevel>=15&&x>-84-r&&x<-46+r&&z>l.plotBack-5-r&&z<5+r)||(z<l.plotBack-10+r&&z>l.plotBack-150-r&&x>employeeHome(l,0).house.x-6-r&&x<l.employeeParking.right+8+r)||(state.garageLevel>=16&&z>43-r)||(state.garageLevel>=15&&(Math.abs(z-32)<r+3||Math.abs(x+46)<r+3));
     const built=[];for(const args of buildings){const [x,z,w]=args;if(occupied(x,z,w/2+1)||[...roads.xs,...(state.garageLevel>=6?[-extent/2+25,extent/2-25]:[])].some(v=>Math.abs(x-v)<w/2+7)||roads.zs.some(v=>Math.abs(z-v)<w/2+5))continue;const height=state.garageLevel===1?Math.min(args[3],4.2):Math.min(22,args[3]*(.55+state.garageLevel*.07));this.house(city,args[0],args[1],args[2],height,args[4]);built.push(args);}addCityDetails(city,state,l,roads,extent,built);
-    for(const [x,z] of [[-16,2],[-9,17],[15,20],[-30,-17],[-31,18],[30,18],[31,-17],[-46,-22],[44,-18],[-12,-30],[12,-30],[28,-4],[-30,-4]])if(!occupied(x,z,1.5))tree(city,x,z,1.1);
-    if(state.garageLevel<2){box(city,'#dfd9c3',[7,.14,7],[8,.03,-15]);cylinder(city,'#edeee3',1.2,.24,[8,.25,-15],12);cylinder(city,'#81cdd9',1,.1,[8,.39,-15],12);tree(city,13,-17,1);}
-    for(const x of [-16,16,-28,28])for(const z of [5,-19,33]){cylinder(city,'#c7d6db',.065,3.8,[x,1.9,z],6);box(city,'#d7e2e2',[.65,.11,.28],[x+.2,3.83,z]);}
+    for(const [x,z] of [[-16,2],[-9,17],[15,20],[-30,-17],[-31,18],[30,18],[31,-17],[-46,-22],[44,-18],[-12,-30],[12,-30],[28,-4],[-30,-4]])if(!occupied(x,z,1.5)&&!onCityRoad(state,x,z,1.7))tree(city,x,z,1.1);
+    if(state.garageLevel<2){box(city,'#dfd9c3',[7,.14,7],[-18,.03,-17]);cylinder(city,'#edeee3',1.2,.24,[-18,.25,-17],12);cylinder(city,'#81cdd9',1,.1,[-18,.39,-17],12);tree(city,-17,-22,1);}
+    for(const x of [-16,16,-28,28])for(const z of [5,-19,33]){if(occupied(x,z,.4)||onCityRoad(state,x,z,.7))continue;cylinder(city,'#c7d6db',.065,3.8,[x,1.9,z],6);box(city,'#d7e2e2',[.65,.11,.28],[x+.2,3.83,z]);}
     const plotWidth=l.plotRight-l.plotLeft,depth=plotFront-l.plotBack;
     box(city,'#9caeb8',[plotWidth,.14,depth],[(l.plotLeft+l.plotRight)/2,.03,(l.plotBack+plotFront)/2]);
     box(city,'#e4e8de',[plotWidth,.1,1.2],[(l.plotLeft+l.plotRight)/2,.13,plotFront-.5]);
     for(const x of [l.plotLeft,l.plotRight]){box(city,'#f1d389',[.09,.025,depth-1],[x,.12,(l.plotBack+plotFront-1)/2]);}
-    if(state.garageLevel>=2){for(let z=l.clBack+1;z<-11;z+=1.5)box(city,'#e8d372',[.09,.025,.75],[-20.6,.12,z]);}
+    if(state.garageLevel>=2){const z=logisticsRoad(state);box(city,'#4d6878',[49,.06,7.8],[-35.5,.13,z]);for(let x=-58;x<-14;x+=7)box(city,'#e8d372',[2.6,.025,.09],[x,.17,z]);for(let z=l.clBack+1;z<-11;z+=1.5)box(city,'#e8d372',[.09,.025,.75],[-20.6,.12,z]);}
     // Visitor spaces stay beside the lounge; service bays keep their own entrance.
     const parkingZ=l.front+1.8;
     for(let i=0;i<(state.garageLevel===1?2:3);i++){
@@ -144,7 +144,7 @@ export class GarageScene {
     this.roof.visible=this.inGame?this.roofVisible:true;
   }
   batchGarage(){
-    const protectedNodes=new Set([this.roof,this.advancedDecor.dynamic,this.upgradeDecor.boss,this.workforceScene.group,...this.frontPanes,...this.readyPackages,...Object.values(this.productShelves).flat(),...this.warehouseBoxes.flat(),...this.doors.flatMap(door=>door.panels),...this.displays,...this.campusDecor.machines.map(machine=>machine.glass),...this.campusDecor.panes,...this.fulfillment.parcels.map(parcel=>parcel.mesh),...this.fulfillment.arms]);
+    const protectedNodes=new Set([this.roof,this.advancedDecor.dynamic,this.upgradeDecor.boss,this.workforceScene.group,...this.frontPanes,...this.readyPackages,...Object.values(this.productShelves).flat(),...this.warehouseBoxes.flat(),...this.doors.flatMap(door=>door.panels),...this.displays,...this.campusDecor.machines.flatMap(machine=>[machine.glass,machine.cutter,machine.scanner,machine.heat]),...this.campusDecor.panes,...this.fulfillment.parcels.map(parcel=>parcel.mesh),...this.fulfillment.arms]);
     const structure=new THREE.Group();this.garage.add(structure);
     for(const child of [...this.garage.children]){
       if(child===structure)continue;let movable=true;
@@ -162,7 +162,7 @@ export class GarageScene {
     box(garage,'#1578c7',[width,.4,.2],[center,2.65,l.clBack+.05]);
     box(this.roof,'#2377ad',[width+.6,.25,depth+.4],[center,3.7,mid]);
     for(let i=0;i<activeStaff(state,'logistics');i++){const p=collectorHome(state,i);chair(garage,p.x,p.z,p.facing,'#e4b266');}
-    for(let i=0;i<Math.max(1,Math.ceil(activeStaff(state,'logistics')/2));i++){const z=-16.05-i*4.4;box(garage,'#40617b',[2.4,.9,.8],[-7.1,.73,z]);box(garage,'#bacbd3',[2.6,.12,.95],[-7.1,1.23,z]);box(garage,'#184966',[.5,.33,.16],[-7.1,1.44,z]);box(garage,'#69dce0',[.4,.22,.03],[-7.1,1.46,z+.09]);}
+    for(let i=0;i<Math.max(1,Math.ceil(activeStaff(state,'logistics')/2));i++){const p=scanStation(state,i*2),x=p.x+.5,z=p.z-1.45;box(garage,'#40617b',[2.4,.9,.8],[x,.73,z]);box(garage,'#bacbd3',[2.6,.12,.95],[x,1.23,z]);box(garage,'#184966',[.5,.33,.16],[x,1.44,z]);box(garage,'#69dce0',[.4,.22,.03],[x,1.46,z+.09]);}
     for(const [i,rack] of getAddresses(state).entries()){
       for(const x of [-1.5,1.5])for(const z of [-.5,.5])box(garage,'#206daa',[.1,2.5,.1],[rack.x+x,1.54,rack.z+z]);
       for(const y of [.55,1.25,1.95])box(garage,'#e9bd56',[3.15,.12,1.1],[rack.x,y,rack.z]);
@@ -255,12 +255,13 @@ export class GarageScene {
     for(const [id,mesh] of this.carMeshes)if(!vehicles.some(c=>c.id===id)){mesh.userData.serviceBar?.children.forEach(o=>{o.geometry.dispose();o.material.dispose();});mesh.userData.windshield.material.dispose?.();mesh.userData.crack.geometry?.dispose();mesh.userData.crack.material?.dispose();mesh.removeFromParent();this.driverMeshes.get(id).removeFromParent();this.carMeshes.delete(id);this.driverMeshes.delete(id);}
     this.updatePeople(this.workerMeshes,simulation.workers,()=>makePerson('#2485ce',true,true),simulation.time);
     this.updatePeople(this.cashierMeshes,simulation.cashiers,()=>makePerson('#1979c8',true),simulation.time);
-    this.updatePeople(this.receiverMeshes,simulation.logistics.workers,()=>makePerson('#e59a37',false,false,true),simulation.time);
+    // CL staff share the workforce instance pools instead of allocating a full mesh hierarchy per person.
+    this.updatePeople(this.receiverMeshes,[],()=>makePerson('#e59a37',false,false,true),simulation.time);
     this.updatePeople(this.officeMeshes,simulation.office.people(),a=>makePerson(a.id==='business-guest'?'#b59568':'#2e577b'),simulation.time);
     this.updatePeople(this.itMeshes,simulation.it.workers,()=>makePerson('#605bba'),simulation.time);
-    this.updatePeople(this.campusMeshes,simulation.campus.people().filter(a=>simulation.clock.day||a.id.startsWith('factory')),a=>makePerson(a.id.startsWith('factory')?'#e7a44a':a.id==='teacher'?'#247f79':'#74b8aa',a.id.startsWith('factory')),simulation.time);
+    this.updatePeople(this.campusMeshes,simulation.campus.people().filter(a=>simulation.clock.day||a.commuting||a.id.startsWith('factory')),a=>makePerson(a.id.startsWith('factory')?'#e7a44a':a.id==='teacher'?'#247f79':'#74b8aa',a.id.startsWith('factory')),simulation.time);
     for(const parcel of this.fulfillment?.parcels||[]){parcel.mesh.visible=simulation.orders.active.length>0;parcel.mesh.position.x=parcel.start+(simulation.time*.8+parcel.index*2)%(parcel.end-parcel.start);}for(const [i,arm] of (this.fulfillment?.arms||[]).entries())arm.rotation.y=Math.sin(simulation.time*.7+i)*.55;
-    for(const machine of this.campusDecor?.machines||[]){const operator=simulation.campus.operators[machine.index];if(operator){machine.glass.position.z=THREE.MathUtils.damp(machine.glass.position.z,-28.2+(operator.progress||0)*8.8,2,active?dt:0);machine.glass.material.color.set(operator.phase==='tempering'?'#ffa773':'#98e6e5');}}
+    for(const machine of this.campusDecor?.machines||[]){const operator=simulation.campus.operators[machine.index];if(operator){machine.glass.position.z=THREE.MathUtils.damp(machine.glass.position.z,-28.2+(operator.progress||0)*8.8,2,active?dt:0);const working=simulation.clock.day&&!operator.offDuty&&!operator.commuting;machine.glass.material.color.set(working&&operator.phase==='tempering'?'#ffa773':'#98e6e5');machine.cutter.position.x=machine.x+(working&&operator.phase==='cutting'?Math.sin(simulation.time*4)*.48:0);machine.scanner.visible=working&&operator.phase==='quality';machine.scanner.position.z=-20.5+Math.sin(simulation.time*5)*.42;machine.heat.material.emissive.set(working&&operator.phase==='tempering'?'#e96519':'#000000');machine.heat.material.emissiveIntensity=.35+.15*Math.sin(simulation.time*4);}}
     (this.campusDecor?.panes||[]).forEach((pane,i)=>pane.visible=i*4<simulation.economy.state.factoryStock);
     for(const display of this.displays||[])if(display.material?.emissive)display.material.emissiveIntensity=.15+.1*Math.sin(this.time*(display.userData.type==='server'?4:1.7));
     for(const door of this.doors){const near=simulation.people().some(a=>Math.hypot(a.x-door.x,a.z-door.z)<3)||simulation.navigation.doors.get(door.id)?.owner;door.open=THREE.MathUtils.damp(door.open,near?1:0,7,dt);door.panels[0].position.x=-door.width/4-door.open*door.width/2;door.panels[1].position.x=door.width/4+door.open*door.width/2;}

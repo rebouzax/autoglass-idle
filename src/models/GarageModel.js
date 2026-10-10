@@ -28,7 +28,7 @@ export class GarageModel{
     this.logistics.sync(this);this.office.sync(this);this.it.sync(this);this.campus.sync(this);
   }
   configureNavigation(invalidate=true){
-    const s=this.economy.state,l=shopLayout(s),obstacles=shopObstacles(s);
+    if(!invalidate&&this.time-(this.lastNavUpdate||0)<.2)return;this.lastNavUpdate=this.time;const s=this.economy.state,l=shopLayout(s),obstacles=shopObstacles(s);
     for(const car of [...this.cars,...this.orders.couriers])if(car.z<driveway(s).front)obstacles.push(vehicleBounds(car));
     for(const truck of this.logistics.trucks)if(truck.z>l.plotBack-.5)obstacles.push(vehicleBounds(truck));
     this.navigation.configure(obstacles,{minX:s.garageLevel>=2?-12.6:-11,maxX:l.plotRight-.3,minZ:l.plotBack+.8,maxZ:driveway(s).front+.4},invalidate);this.navigation.roomOf=p=>roomOf(p,s);
@@ -79,8 +79,8 @@ export class GarageModel{
   advanceVehicle(actor,dt){
     if(this.needsManeuver(actor))actor.maneuverSince??=this.time;else actor.maneuverSince=null;
     if(!this.maneuverAllowed(actor)){actor.speed=0;actor.moving=false;actor.waitReason='manobra';actor.stoppedFor=(actor.stoppedFor||0)+dt;return false;}
-    const snapshot={...actor},vehicles=this.vehicles();actor.targetSpeed=signalSpeedLimit(actor,this.time,this.city.roads,vehicleSpeedLimit(actor,vehicles,(actor.baseSpeed??=actor.targetSpeed)*this.weather.roadSpeed));const complete=advance(actor,dt),body=vehicleBounds(actor);
-    const red=!obeysSignals(snapshot,actor,this.time,this.city.roads),pedestrian=[...this.people(),...this.staff.externalPeople()].some(p=>touchesRectangle(p.x,p.z,actorRadius(p),body))||this.city.pedestrians.some(p=>touchesRectangle(p.x,p.z,.36,body)),traffic=vehicles.some(other=>other!==actor&&vehicleCollisionBlocks(snapshot,actor,other));
+    const snapshot={...actor},vehicles=this.vehicles().filter(v=>Math.abs(v.x-actor.x)<28&&Math.abs(v.z-actor.z)<28);actor.targetSpeed=signalSpeedLimit(actor,this.time,this.city.roads,vehicleSpeedLimit(actor,vehicles,(actor.baseSpeed??=actor.targetSpeed)*this.weather.roadSpeed));const complete=advance(actor,dt),body=vehicleBounds(actor);
+    const red=!obeysSignals(snapshot,actor,this.time,this.city.roads),pedestrian=[...this.people(),...this.staff.externalPeople()].some(p=>Math.abs(p.x-actor.x)<9&&Math.abs(p.z-actor.z)<9&&touchesRectangle(p.x,p.z,actorRadius(p),body))||this.city.pedestrians.some(p=>Math.abs(p.x-actor.x)<9&&Math.abs(p.z-actor.z)<9&&touchesRectangle(p.x,p.z,.36,body)),traffic=vehicles.some(other=>other!==actor&&vehicleCollisionBlocks(snapshot,actor,other));
     if(red||pedestrian||traffic){Object.assign(actor,snapshot);actor.speed=0;actor.moving=false;actor.waitReason=red?'semáforo':pedestrian?'pedestre':'trânsito';actor.stoppedFor=(actor.stoppedFor||0)+dt;return false;}actor.waitReason=null;actor.stoppedFor=0;return complete;
   }
   people(){return [...this.cashiers,...this.workers,...this.logistics.workers,...this.office.people(),...this.it.workers,...this.campus.people(),...this.orders.workers(),...this.cars.filter(c=>c.driver.visible).map(c=>c.driver)].filter(a=>!a.offDuty);}
@@ -96,7 +96,7 @@ export class GarageModel{
     }return false;
   }
   tick(dt){
-    if(!dt)return;this.clock.tick(dt);this.time+=dt;this.weather.tick(dt);this.syncStaff();this.releaseStations();this.events=this.events.filter(e=>this.time-e.time<1.8);this.arrival-=dt;
+    if(!dt)return;this.navigation.beginStep();this.clock.tick(dt);this.time+=dt;this.weather.tick(dt);this.syncStaff();this.releaseStations();this.events=this.events.filter(e=>this.time-e.time<1.8);this.arrival-=dt;
     if(this.navSignature!==this.layoutSignature())this.configureNavigation();
     this.city.configure(this.economy.state);this.city.tick(dt,[...this.cars,...this.orders.couriers,...this.logistics.trucks,...this.advanced.trucks,...this.staff.vehicles()],this.weather.roadSpeed);
     this.staff.tick(dt,this);this.logistics.tick(dt,this);this.office.tick(dt,this);this.it.tick(dt,this);this.campus.tick(this.clock.day?dt:0,this);this.orders.tick(dt,this);this.advanced.tick(dt,this);

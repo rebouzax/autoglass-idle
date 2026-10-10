@@ -53,7 +53,7 @@ export function buildCampus(parent,roof,state,l,doorway){
    for(const side of [-1,1])box(group,'#f3c263',[.075,.12,9.5],[x+side*.84,1.14,-24.5]);
    roundedBox(group,'#227dae',[1.65,1.15,2],[x,1.2,-24.5]);box(group,'#ffb75f',[1.42,.27,.06],[x,1.32,-23.47]);
    for(const z of [-28.2,-20.5]){box(group,'#46758b',[.13,1.5,.13],[x+.75,1.64,z]);box(group,'#69cdd4',[1.55,.13,.15],[x,2.36,z]);}
-   const glass=box(parent,'#98e6e5',[1.35,.09,1.1],[x,1.16,-28.2],true);glass.material=glass.material.clone();machines.push({glass,index:i,x});
+   const cutter=box(parent,'#edf3d4',[1.5,.12,.15],[x,1.55,-28.2]);const scanner=box(parent,'#65edcf',[1.4,.025,.1],[x,1.3,-20.5]);const heat=box(parent,'#ffc36d',[1.42,.26,.06],[x,1.32,-23.43]);heat.material=heat.material.clone();const glass=box(parent,'#98e6e5',[1.35,.09,1.1],[x,1.16,-28.2],true);glass.material=glass.material.clone();machines.push({glass,cutter,scanner,heat,index:i,x});
    const p=factoryStation(state,i,2);box(group,'#46b9a7',[.13,.12,.13],[p.x+.72,1.6,p.z]);
   }
   roundedBox(group,'#335f7b',[1.4,.8,1.3],[left+2.7,.7,-16.6]);
@@ -64,22 +64,6 @@ export function buildCampus(parent,roof,state,l,doorway){
   box(group,'#d5e3e5',[13.8,.18,5],[l.officeLeft+9,.2,-34.5]);
   for(const side of [-1,1]){const x=l.officeLeft+9+side*3.5;roundedBox(group,'#2770a0',[5.5,5.4,4.2],[x,3.1,-34.5]);for(let row=0;row<4;row++)box(group,'#a4d8e3',[5,.7,.06],[x,1.4+row*1.1,-32.36],true);}
   addBrandPanel(parent,6.5,l.officeLeft+9,5.25,-32.26);
- }
- if(state.garageLevel>=9&&l.plotBack<-44){
-  const yardLeft=l.officeLeft+2,yardRight=(l.workforce?l.workforce.left:l.plotRight)-2,back=l.plotBack+2;
-  box(group,'#c2d4cf',[yardRight-yardLeft,.06,-38-back],[(yardLeft+yardRight)/2,.12,(back-38)/2]);
-  for(let x=yardLeft+2;x<yardRight-1;x+=3.5){
-   for(const side of [-1,1])box(group,'#eff5e5',[.06,.015,4.5],[x+side*1.55,.16,-63]);
-   if(Math.floor(x)%3!==0){const car=makeCar(['#86b8c3','#f4e9cc','#4789b1'][Math.floor(x)%3]);car.position.set(x,.2,-63);car.userData.crack.visible=false;car.rotation.y=Math.PI;group.add(car);}
-  }
-  const count=back<-90?(state.garageLevel>=14?2:1):0;
-  for(let i=0;i<count;i++){
-   const x=yardLeft+7+i*18,z=back+9;if(x+7>yardRight)continue;
-   roundedBox(group,'#d3e0e5',[13.5,3.8,12],[x,2.1,z]);box(group,'#327c9c',[13.8,.25,12.3],[x,4.08,z]);
-   for(let j=0;j<4;j++){box(group,'#549da9',[2.3,.04,4.7],[x-4.8+j*3.2,4.24,z-1.8]);box(group,'#abcada',[2,.7,.055],[x-4.8+j*3.2,2.72,z+6.04],true);}
-   box(group,'#58808d',[3,2.7,.07],[x,1.66,z+6.08]);addBrandPanel(parent,4.3,x,3.49,z+6.13);
-  }
-  for(const x of [yardLeft+1,yardRight-1])for(const z of [back+1,-38.4])tree(group,x,z,.9);
  }
  batchStatic(group);return{machines,panes};
 }

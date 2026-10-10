@@ -12,7 +12,7 @@ export const packingPoint={x:13.7,z:-5.3};
 export const pickupPoint={x:-6.9,z:-4.9};
 export const packingBench={x:15.1,z:-5.3};
 export const productPoint=product=>product==='glass'?stockPoint:{x:product==='carMirror'?2.25:product==='motoMirror'?5.3:8.35,z:-4.85};
-export const dispatchBay=(s,i)=>({x:shopLayout(s).officeLeft+3.45+i*4.6,z:driveway(s).front-1.6});
+export const dispatchBay=(s,i)=>({x:shopLayout(s).officeLeft+3.45+i*4.6,z:driveway(s).front-4.3});
 export const dispatchPoint=(s,i)=>({x:dispatchBay(s,i).x-1.8,z:dispatchBay(s,i).z-1.1});
 export const courierSeat=(s,i)=>({x:dispatchBay(s,i).x-1.8,z:dispatchBay(s,i).z+.4});
 export const frontDoor={x:-6.1,z:3.2};
@@ -24,17 +24,24 @@ export const addresses=Array.from({length:72},(_,i)=>({id:`A-${String(i+1).padSt
 export const getAddresses=s=>s.garageLevel<2?[]:addresses.slice(0,s.garageLevel===2?3:s.garageLevel>=7?36+Math.min(36,4*(s.garageLevel-6)+2*(s.warehouseExpansion||0)):Math.min(36,6+3*(s.warehouseExpansion??0)));
 export const rackPoint=i=>({x:addresses[i].x,z:addresses[i].z+1.25});
 export function shopLayout(s={garageLevel:1}){
- const stage=s.garageLevel||1,front=3.2+(s.storeExpansion??0),right=stage===1?5.45:bayX((s.bays||levelConfig(s).bays)-1)+4.2,clBack=Math.min(stage>=7?Math.min(-78-(stage-7)*5,-20.3-5.1*(s.warehouseExpansion??0)-Math.max(0,stage-6)*4):-20.3-5.1*(s.warehouseExpansion??0),stage>=2?-19-4.4*(Math.ceil(levelConfig(s).activeCollectors/2)-1):0),officeLeft=right+.9,officeRight=officeLeft+(stage>=7?32+(stage-7)*2:stage>=6?18:stage>=5?16:12);
+ const stage=s.garageLevel||1,front=3.2+(s.storeExpansion??0),right=stage===1?5.45:bayX((s.bays||levelConfig(s).bays)-1)+4.2,clBack=Math.min(stage>=7?Math.min(-78-(stage-7)*5,-20.3-5.1*(s.warehouseExpansion??0)-Math.max(0,stage-6)*4):-20.3-5.1*(s.warehouseExpansion??0),stage>=2?-19-4.4*(Math.ceil(levelConfig(s).activeCollectors/(stage>=7?4:2))-1):0),officeLeft=right+.9,officeRight=officeLeft+(stage>=7?32+(stage-7)*2:stage>=6?18:stage>=5?16:12);
  const academyLeft=officeRight+2,academyRight=officeRight+21,factoryRight=officeRight+25;
  const primaryRight=stage>=14?factoryRight:stage>=8?academyRight:stage>=4?officeRight:right;
  const workforce=stage>=3?workforceLayout(s,primaryRight):null;
- const campusBack=Math.min(workforce?workforce.back-.7:0,stage>=7?Math.min(clBack-.7,-58-(stage-7)*5):stage>=6?Math.min(clBack-.7,-30):stage>=2?clBack-.7:-10.5),plotLeft=stage>=2?-21.5:-11.4,plotRight=workforce?workforce.right+1.3:primaryRight+1.3,columns=Math.max(2,Math.min(32,Math.floor((plotRight-plotLeft-8)/3.1))),rows=Math.ceil(staffCapacity(s)/columns),parkingWidth=columns*3.1+4,employeeParking={columns,rows,left:(plotLeft+plotRight-parkingWidth)/2,right:(plotLeft+plotRight+parkingWidth)/2,front:campusBack-3,back:campusBack-3-rows*10.8-7};
- return{campusBack,employeeParking,left:-10.3,right,front,back:-9.2,clBack,stage,officeLeft,officeRight,officeBack:-13.5,officeFront:1.6,itBack:-29,itFront:-13.5,academyLeft,academyRight,factoryRight,workforce,plotLeft,plotRight,plotBack:employeeParking.back-2};
+ const campusBack=Math.min(workforce?workforce.back-.7:0,stage>=7?Math.min(clBack-.7,-58-(stage-7)*5):stage>=6?Math.min(clBack-.7,-30):stage>=2?clBack-.7:-10.5),plotLeft=stage>=2?-21.5:-11.4;
+ const parkingLeft=stage>=7?officeLeft+8:stage>=2?primaryRight+4:-9.3,parkingRoom=stage>=7?workforce.left-9-parkingLeft:stage>=2?24:16.4,columns=Math.max(2,Math.floor((parkingRoom-4)/3.1)),capacity=Math.ceil(staffCapacity(s)*.65)+4,rows=Math.ceil(capacity/columns),parkingWidth=columns*3.1+4,parkingFront=stage>=7?-62:stage>=2?1.6:-12.5;
+ const employeeParking={columns,rows,capacity,left:parkingLeft,right:parkingLeft+parkingWidth,front:parkingFront,back:parkingFront-rows*10.8-7,access:stage>=7?'left':'right'};
+ const plotRight=Math.max(workforce?workforce.right+1.3:primaryRight+1.3,employeeParking.right+14),plotBack=Math.min(campusBack,employeeParking.back-2);
+ return{campusBack,employeeParking,left:-10.3,right,front,back:-9.2,clBack,stage,officeLeft,officeRight,officeBack:-13.5,officeFront:1.6,itBack:-29,itFront:-13.5,academyLeft,academyRight,factoryRight,workforce,plotLeft,plotRight,plotBack};
 }
 export function docks(s){const l=shopLayout(s),count=Math.min(levelConfig(s).docks,1+Math.floor((l.back-l.clBack-10)/10.2));return Array.from({length:Math.max(1,count)},(_,i)=>({id:`dock-${i}`,index:i,x:-14.3,z:-15.2-i*10.2,point:{x:-11.7,z:-15.2-i*10.2}}));}
-export const collectorHome=(s,i)=>({x:14.8,z:-11.5-i*2.1,facing:-Math.PI/2});
-export const scanStation=(s,i)=>({x:-7.6+(i%2)*1.35,z:-14.6-Math.floor(i/2)*4.4});
-export function cityRoads(s={garageLevel:1}){const l=shopLayout(s);return{xs:[-28.5,Math.max(22,l.plotRight+(s.garageLevel>=6?30:6))],zs:[10+(s.storeExpansion||0),s.garageLevel>=2?l.plotBack-4.5:-24,38]};}
+export const collectorHome=(s,i)=>({x:s.garageLevel>=7&&i%2?shopLayout(s).right-1.4:14.8,z:-11.5-Math.floor(i/(s.garageLevel>=7?2:1))*2.1,facing:-Math.PI/2});
+export const scanStation=(s,i)=>({x:(s.garageLevel>=7&&Math.floor(i/2)%2?shopLayout(s).right-8.4:-7.6)+(i%2)*1.35,z:-14.6-Math.floor(i/(s.garageLevel>=7?4:2))*4.4});
+export function cityRoads(s={garageLevel:1}){const l=shopLayout(s);return{xs:[-28.5,Math.max(22,l.plotRight+(s.garageLevel>=6?30:6))],zs:[10+(s.storeExpansion||0),l.plotBack-7,38]};}
+export function employeeHome(l,number){const columns=Math.min(25,Math.max(1,Math.ceil(staffCapacity({garageLevel:l.stage})/2))),house=Math.floor(number/2),raw=l.employeeParking.left-(columns*6.4+30)+(house%columns)*6.4,x=raw>-35?raw+14:raw,z=l.plotBack-18-Math.floor(house/columns)*12.4;return {house:{x,z},home:{x:x+(number%2?1:-1)*1.65,z:z+2.9}};}
+export const parkingGate=(l,arriving=false)=>l.employeeParking.access==='left'?l.employeeParking.left-(arriving?1.2:5.6):l.employeeParking.right+(arriving?12.4:8);
+export function onCityRoad(s,x,z,r=0){const roads=cityRoads(s),half=s.garageLevel>=6?4.7:3.7;return roads.xs.some(v=>Math.abs(x-v)<half+r)||roads.zs.some(v=>Math.abs(z-v)<half+r);}
+export const logisticsRoad=s=>shopLayout(s).clBack-7;
 export const roadExit=s=>Math.max(100,shopLayout(s).plotRight+32);
 export function officeDesk(s,i){const l=shopLayout(s),cols=s.garageLevel>=7?4:s.garageLevel>=5?3:2,row=Math.floor(i/cols);return{x:l.officeLeft+(s.garageLevel>=7?6:4.1)+(i%cols)*4.4,z:-1.1-row*3.2,facing:Math.PI};}
 export function meetingSeat(s,i){const l=shopLayout(s);return{x:l.officeLeft+5.9+(i?1.7:-1.7),z:-11.1,facing:i?-Math.PI/2:Math.PI/2};}
@@ -67,7 +74,7 @@ export function shopObstacles(s){
  if(l.stage<2)o.push(rectangle((l.left+l.right)/2,l.back,l.right-l.left,.24));else{
   o.push(rectangle((l.left+11.5)/2,l.back,11.5-l.left,.24),rectangle((14.7+l.right)/2,l.back,l.right-14.7,.24),rectangle((l.left+l.right)/2,l.clBack,l.right-l.left,.24),rectangle(l.right,(l.clBack+l.back)/2,.22,l.back-l.clBack));
   const openings=docks(s).map(d=>({low:d.z-1.55,high:d.z+1.55})).sort((a,b)=>a.low-b.low);let z=l.clBack;for(const gap of openings){if(gap.low>z)o.push(rectangle(l.left,(z+gap.low)/2,.22,gap.low-z));z=gap.high;}if(z<l.back)o.push(rectangle(l.left,(z+l.back)/2,.22,l.back-z));
-  for(const rack of getAddresses(s))o.push(rectangle(rack.x,rack.z,3.1,1.05));for(let i=0;i<Math.max(1,Math.ceil(activeStaff(s,'logistics')/2));i++)o.push(rectangle(-7.1,-16.05-i*4.4,2.4,.8));
+  for(const rack of getAddresses(s))o.push(rectangle(rack.x,rack.z,3.1,1.05));for(let i=0;i<Math.max(1,Math.ceil(activeStaff(s,'logistics')/2));i++){const p=scanStation(s,i*2);o.push(rectangle(p.x+.5,p.z-1.45,2.4,.8));}
   for(let i=0;i<activeStaff(s,'logistics');i++){const p=collectorHome(s,i);o.push(rectangle(p.x+.65,p.z,.13,.8));}
   if(s.garageLevel>=7){o.push(rectangle((18+l.right-2)/2,-14.9,l.right-20,1.35));if(s.garageLevel>=12)for(const x of [l.right-3,l.right-6])o.push(rectangle(x,-16.4,1.1,1.1));}
  }

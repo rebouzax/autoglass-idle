@@ -54,7 +54,7 @@ export const LIMITS=Object.fromEntries(Object.entries(UPGRADES).map(([kind,u])=>
 const networkFields=['networkHub','globalTrade','airCargo','seaCargo','branches','fleetContracts','distribution','insurance','marketplace','automation','international','manufacturing','holding'];
 const channelFields={branches:'branches',fleet:'fleetContracts',distribution:'distribution',insurance:'insurance',marketplace:'marketplace',automation:'automation',international:'international',manufacturing:'manufacturing',holding:'holding',online:'ecommerce',air:'airCargo',maritime:'seaCargo'};
 const freshState=()=>({
-  cash:0,totalEarned:0,customers:0,workers:1,bays:1,garageLevel:1,productivity:0,tools:0,stockRacks:0,cashiers:1,
+  wmsStationChecks:0,staffBreaks:0,networkSyncs:0,salesMeetings:0,qualityInspections:0,cash:0,totalEarned:0,customers:0,workers:1,bays:1,garageLevel:1,productivity:0,tools:0,stockRacks:0,cashiers:1,
   logisticsWorkers:0,logisticsProductivity:0,storeExpansion:0,warehouseExpansion:0,officeChairs:0,officeComputers:0,businessArea:0,salesTraining:0,dispatchLevel:0,productRange:0,packingLevel:0,
   itWorkers:0,itComputers:0,ecommerce:0,servers:0,onlineMarketing:0,salesWorkers:0,factoryWorkers:0,
   trainingLevel:0,curriculum:0,certifications:0,productionLines:0,qualityControl:0,producedGlass:0,factoryStock:0,factoryTransfers:[],wmsLevel:0,wmsAudits:0,wmsMovements:[],nextMovementId:1,

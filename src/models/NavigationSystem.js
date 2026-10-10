@@ -129,6 +129,7 @@ export class NavigationSystem {
     }
     return true;
   }
+  beginStep(){this.searchBudget=4;this.expansionBudget=6000;this.planCursor=(this.planCursor||0)+1;}
   path(start, goal, r = PERSON_RADIUS, extra = []) {
     if (!goal || !Number.isFinite(goal.x) || !Number.isFinite(goal.z)) return [];
     const extraIndex = extra.length ? spatialIndex(extra) : null;
@@ -137,6 +138,7 @@ export class NavigationSystem {
     const segment = (a, b) => this.clearSegment(a, b, r, extraIndex, allowed);
     if (!clear(goal.x, goal.z)) return [];
     if (segment(start, goal)) return [goal];
+    if(this.searchBudget!==undefined){if(this.searchBudget<=0||this.expansionBudget<=0)return [];this.searchBudget--;}
     // A room transition searches only its two connected rooms, even in a large campus.
     const rooms = this.roomOf ? [this.roomBounds?.[this.roomOf(start)], this.roomBounds?.[this.roomOf(goal)]].filter(Boolean) : [];
     const b = rooms.length ? {
@@ -171,13 +173,13 @@ export class NavigationSystem {
     const begin = nearest(start, true), end = nearest(goal);
     if (begin < 0 || end < 0) return [];
     const scores = new Map([[begin, 0]]), parents = new Map(), open = new MinHeap(), closed = new Set();
-    let found = false;
+    let found=false,closest=begin,bestDistance=Math.hypot(point(begin).x-goal.x,point(begin).z-goal.z),expanded=0;
     open.push({ index: begin, score: Math.hypot(start.x - goal.x, start.z - goal.z) });
-    while (open.size) {
+    while (open.size&&expanded<2400&&(this.expansionBudget??1)>0) {
       const current = open.pop().index;
       if (closed.has(current)) continue;
       if (current === end) { found = true; break; }
-      closed.add(current);
+      closed.add(current);expanded++;if(this.expansionBudget!==undefined)this.expansionBudget--;const distanceToGoal=Math.hypot(point(current).x-goal.x,point(current).z-goal.z);if(distanceToGoal<bestDistance){bestDistance=distanceToGoal;closest=current;}
       const p = point(current), cx = current % width, cz = Math.floor(current / width);
       for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
         if (!dx && !dz) continue;
@@ -186,16 +188,18 @@ export class NavigationSystem {
         const next = z * width + x;
         if (closed.has(next) || !free(next)) continue;
         const q = point(next);
-        if (!segment(p, q)) continue;
+        // With a 0.4 m grid and 0.44 m bodies, free orthogonal neighbours also guard diagonal corners.
+        if(dx&&dz&&(!free(cz*width+x)||!free(z*width+cx)))continue;
         const cost = scores.get(current) + Math.hypot(q.x - p.x, q.z - p.z);
         if (cost < (scores.get(next) ?? Infinity)) {
           scores.set(next, cost); parents.set(next, current);
-          open.push({ index: next, score: cost + Math.hypot(q.x - goal.x, q.z - goal.z) });
+          open.push({ index: next, score: cost + Math.hypot(q.x - goal.x, q.z - goal.z)*1.12 });
         }
       }
     }
-    if (!found) return [];
-    const raw = [goal]; let current = end;
+    // Continue along a safe partial route when the per-frame search budget runs out.
+    if(!found&&(closest===begin||bestDistance>=Math.hypot(start.x-goal.x,start.z-goal.z)-.8))return [];
+    const raw=found?[goal]:[];let current=found?end:closest;
     while (current !== begin) { raw.unshift(point(current)); current = parents.get(current); }
     raw.unshift(point(begin));
     const simplified = []; let previous = start;
@@ -207,7 +211,7 @@ export class NavigationSystem {
     return simplified;
   }
   actorPath(actor, goal = actor.goal, allowApproach = true) {
-    const r = actorRadius(actor);
+    actor.planningDeferred=false;if((this.searchBudget??1)<=0||(this.expansionBudget??1)<=0){actor.planningDeferred=true;return goal===actor.goal?actor.route||[]:[];}const r = actorRadius(actor);
     // After an expansion, furniture can cover an old interaction point.
     // Walk to a nearby reachable spot in the same room instead of retrying forever.
     if(goal===actor.goal&&goal&&!goal.portal&&!this.clearPoint(goal.x,goal.z,r)){
@@ -334,7 +338,7 @@ export class NavigationSystem {
       door.queue = door.queue.filter(a => actors.includes(a) && a.goal?.portal === id);
       if (door.owner && (!actors.includes(door.owner) || door.owner.goal?.portal !== id)) door.owner = null;
     }
-    const ordered = [...actors].sort((a, b) => Number(this.isCrossing(b)) - Number(this.isCrossing(a)) || (a.order || 0) - (b.order || 0));
+    const offset=(this.planCursor||0)%Math.max(1,actors.length),ordered = [...actors.slice(offset),...actors.slice(0,offset)].sort((a, b) => Number(this.isCrossing(b)) - Number(this.isCrossing(a)) );
     for (const actor of ordered) {
       actor.moving = false; actor.vx = 0; actor.vz = 0;
       actor.yieldCooldown = Math.max(0, (actor.yieldCooldown || 0) - dt); actor.doorCooldown = Math.max(0, (actor.doorCooldown || 0) - dt);
@@ -375,7 +379,7 @@ export class NavigationSystem {
         && (actor.stallTime > 2.5 || actor.blocked > .65)) this.yield(actor);
       const destination = actor.doorRetreat || holding || actor.goal;
       if (actor.navRevision !== this.revision || actor.retryIn === 0 && (actor.blocked > .75 || !actor.route?.length)) {
-        actor.route = this.actorPath(actor, destination, !holding); actor.navRevision = this.revision; actor.blocked = 0; actor.retryIn = .8;
+        actor.route = this.actorPath(actor, destination, !holding);if(!actor.planningDeferred)actor.navRevision=this.revision;actor.blocked=0;actor.retryIn=actor.planningDeferred?0:.8;
       }
       if (Math.hypot(actor.x - destination.x, actor.z - destination.z) < .09) {
         if (actor.doorRetreat) {

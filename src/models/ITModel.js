@@ -15,7 +15,7 @@ export class ITModel{
     for(const w of this.workers){if(w.offDuty||w.commuting)continue;
       if(w.phase==='coding'){w.build-=dt*speed;if(w.build<=0&&!this.deployOwner){this.deployOwner=w;w.phase='toDeploy';w.typing=false;sim.move(w,deploymentPoint(s),1.25);}}
       else if(w.phase==='toDeploy'&&w.reached){w.phase='deploying';w.timer=3;w.working=true;w.facing=Math.PI;}
-      else if(w.phase==='deploying'){w.timer-=dt*speed;if(w.timer<=0){this.deployments++;w.task=['commerce',...(s.cybersecurity?['security']:[]),...(s.dataAnalytics?['analytics']:[]),...(s.cloudPlatform?['cloud']:[])][this.deployments%(1+!!s.cybersecurity+!!s.dataAnalytics+!!s.cloudPlatform)];s.digitalReleases++;this.economy.emit();w.working=false;w.phase='returning';sim.events.push({id:`deploy-${this.deployments}`,kind:'deploy',x:w.x,z:w.z,time:sim.time});sim.move(w,itDesk(s,w.index),1.3);}}
+      else if(w.phase==='deploying'){w.timer-=dt*speed;if(w.timer<=0){this.deployments++;w.task=['commerce',...(s.cybersecurity?['security']:[]),...(s.dataAnalytics?['analytics']:[]),...(s.cloudPlatform?['cloud']:[])][this.deployments%(1+!!s.cybersecurity+!!s.dataAnalytics+!!s.cloudPlatform)];s.digitalReleases++;if(w.task==='cloud'||w.task==='security')s.networkSyncs++;this.economy.emit();w.working=false;w.phase='returning';sim.events.push({id:`deploy-${this.deployments}`,kind:'deploy',x:w.x,z:w.z,time:sim.time});sim.move(w,itDesk(s,w.index),1.3);}}
       else if(w.phase==='returning'&&w.reached){w.phase='coding';w.typing=true;w.seated=true;w.facing=Math.PI;w.build=35+w.index*5;}
     }
     this.orderClock-=dt*this.economy.teamEfficiency('itWorker');if(this.orderClock<=0&&this.deployments>0&&s.orders.filter(o=>o.phase!=='delivered').length<this.economy.orderCapacity()-2){

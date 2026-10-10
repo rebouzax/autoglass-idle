@@ -8,7 +8,7 @@ export class PerformanceProfile{
   constructor(){this.samples=0;this.elapsed=0;this.average=1/60;this.slowWindows=0;this.fastWindows=0;this.tier=smartphone()?'low':matchMedia('(pointer:coarse)').matches?'medium':'high';}
   setMode(mode){this.mode=mode;this.tier=mode==='auto'?(smartphone()?'low':matchMedia('(pointer:coarse)').matches?'medium':'high'):mode;this.samples=0;this.elapsed=0;this.slowWindows=0;this.fastWindows=0;}
   observe(dt){
-    if(this.mode!=='auto'||dt<=0||dt>.2)return false;
+    if(this.mode!=='auto'||dt<=0)return false;dt=Math.min(.2,dt);
     this.elapsed+=dt;this.samples++;if(this.elapsed<4)return false;
     this.average=this.elapsed/this.samples;this.samples=0;this.elapsed=0;
     this.slowWindows=this.average>1/26?this.slowWindows+1:0;this.fastWindows=this.average<1/52?this.fastWindows+1:0;

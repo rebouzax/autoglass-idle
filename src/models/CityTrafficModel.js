@@ -12,7 +12,7 @@ export function vehicleBounds(actor) {
   return { minX: actor.x - (s * length + c * width), maxX: actor.x + (s * length + c * width), minZ: actor.z - (c * length + s * width), maxZ: actor.z + (c * length + s * width) };
 }
 function overlapDepth(a, b) {
-  const aa = axes(a), bb = axes(b), dx = b.x - a.x, dz = b.z - a.z;
+  const dx=b.x-a.x,dz=b.z-a.z,reach=(a.halfLength??1.6)+(a.halfWidth??.94)+(b.halfLength??1.6)+(b.halfWidth??.94)+.05;if(Math.abs(dx)>reach||Math.abs(dz)>reach)return 0;const aa=axes(a),bb=axes(b);
   let depth = Infinity;
   for (const axis of [...aa, ...bb]) {
     const overlap = projection(a, aa, axis) + projection(b, bb, axis) + .04 - Math.abs(dx * axis.x + dz * axis.z);
@@ -44,7 +44,7 @@ export function followsTooClosely(a, b) {
 export function vehicleSpeedLimit(actor, vehicles, requested = actor.targetSpeed ?? 3.2) {
   let speed = requested;
   for (const other of vehicles) {
-    if (other === actor || other.phase === 'gone') continue;
+    if (other === actor || other.phase === 'gone'||Math.abs(other.x-actor.x)>32||Math.abs(other.z-actor.z)>32) continue;
     // Collision recovery can move out of an existing overlap; a following cap must not pin it there.
     if (overlapDepth(actor, other)) continue;
     const gap = followingGap(actor, other);

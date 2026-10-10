@@ -73,3 +73,5 @@ html,body{overscroll-behavior:none}body{position:fixed;inset:0}button{touch-acti
 @media(min-width:900px) and (min-height:501px){.tutorial-backdrop{place-items:end end}.tutorial-card{width:390px}.tutorial-card p{font-size:12px}.tutorial-card h2{font-size:18px}}
 
 .shift-status{background:#fffffff0;border:1px solid white;border-radius:9px;padding:8px 10px;font-size:12px;font-weight:750;color:#416a85;white-space:nowrap;pointer-events:auto}.operations-tools{flex-wrap:wrap;max-width:240px}@media(max-width:680px){.shift-status{font-size:11px;padding:7px 9px}.operations-tools{max-width:180px}}
+
+.operations-tools{max-width:min(360px,calc(100vw - 24px))}.night-control[aria-pressed="true"]{background:#235e96;color:white;border-color:#7ecae6}.operations-tools .night-control{min-height:40px;min-width:40px;cursor:pointer}.night-skip{font-weight:700}.night-control:focus-visible{outline:3px solid #4ab9e3;outline-offset:2px}@media(max-width:680px){.operations-tools .night-control{min-height:42px}.night-skip span{font-size:10px}.operations-tools{gap:5px}.weather-status{max-width:120px}}

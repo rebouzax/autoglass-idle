@@ -7,17 +7,17 @@ import {MusicPlayer} from '../services/MusicPlayer.js';
 export class GameViewModel {
   constructor(model,view) {
     this.model=model;this.view=view;this.simulation=new GarageModel(model);this.last=performance.now();this.savedAt=0;
-    this.music=new MusicPlayer(model.settings);this.unsubscribe=model.subscribe(state=>{view.render(state);this.music.apply(model.settings);});
+    this.music=new MusicPlayer(model.settings);this.unsubscribe=model.subscribe(()=>{this.dirty=true;});
   }
   start(){
     this.frame=now=>{
       const dt=Math.min(.25,(now-this.last)/1000);this.last=now;
       if(document.hidden){this.accumulator=0;this.renderElapsed=0;this.raf=requestAnimationFrame(this.frame);return;}
-      const step=this.model.tick(dt);this.accumulator=step?Math.min(.25,(this.accumulator||0)+step):0;
+      const step=this.model.tick(dt);this.accumulator=step?Math.min(.1,(this.accumulator||0)+step):0;
       if(this.guide){this.guideElapsed=Math.min(.25,(this.guideElapsed||0)+dt);while(this.guideElapsed>=1/30){this.guide.tick(1/30);this.guideElapsed-=1/30;}}
       while(this.accumulator>=1/30){this.simulation.tick(1/30);this.accumulator-=1/30;}
       if(this.view.scene.performance.observe(dt))this.view.scene.applyPerformance();
-      this.renderElapsed=(this.renderElapsed||0)+dt;
+      if(this.dirty){this.view.render(this.model.state);this.music.apply(this.model.settings);this.dirty=false;}this.renderElapsed=(this.renderElapsed||0)+dt;
       if(this.renderElapsed>=1/this.view.scene.performance.options.fps){if(this.guide)this.view.scene.update(this.renderElapsed,this.guide.simulation,true);else this.view.update(this.renderElapsed,this.simulation,step>0);this.renderElapsed=0;}
       this.savedAt+=step;if(this.savedAt>15){this.model.save();this.savedAt=0;}
       this.raf=requestAnimationFrame(this.frame);
@@ -32,6 +32,8 @@ export class GameViewModel {
     if(name==='tutorial-interact'){this.guide?.interact();return;}
     if(this.guide&&!['tutorial-next','tutorial-prev','tutorial-skip','tutorial-done','home'].includes(name))return;
     if(name==='play')this.play();
+    else if(name==='night-speed'&&!this.simulation.clock.day){this.simulation.clock.speed=this.simulation.clock.speed===1?2:1;this.view.hudTimer=1;}
+    else if(name==='night-skip'&&!this.simulation.clock.day){this.simulation.clock.dawn();this.simulation.staff.startDay(this.simulation);this.model.save();this.view.hudTimer=1;}
     else if(name==='pause'&&!this.view.tutorialActive){this.model.paused=!this.model.paused;this.view.render(this.model.state);this.music.activate(!this.model.paused);}
     else if(name==='garage'||UPGRADES[name]){const quantity=staffRole(name)?this.view.hireBatch||1:1,before=this.model.value(name);if(this.model.buy(name,quantity))this.view.showUpgrade(name,this.model.value(name)-before);}
     else if(name==='home'){if(this.guide){this.guide=null;this.view.tutorialActive=false;this.view.root.classList.remove('is-touring');this.view.q('.tutorial-backdrop').classList.add('hidden');this.view.scene.setGrowth(this.model.state);}this.model.paused=true;this.model.save();this.view.showMenu();this.music.activate(false);}

@@ -25,14 +25,15 @@ export class CampusModel {
     const s=this.economy.state;this.sync(sim);
     if(s.garageLevel<8)return;
     const speed=1+s.curriculum*.3;
-    if(this.teacher&&!this.teacher.offDuty&&!this.teacher.commuting&&sim.clock.day){this.teacher.working=Math.sin(sim.time*.35)>.15;this.teacher.calling=!this.teacher.working;}
+    if(this.teacher&&!this.teacher.offDuty&&!this.teacher.commuting&&sim.clock.day){const teacher=this.teacher;teacher.working=teacher.reached&&Math.sin(sim.time*.8)>.1;teacher.calling=false;if(teacher.reached&&sim.time>(this.nextLecture||0)){this.nextLecture=sim.time+12;const p=academyTeacher(s);sim.move(teacher,{x:p.x,z:p.z+(Math.floor(sim.time/12)%2?4:0)},1.3);}}
     if(this.practiceOwner&&!['toPractice','practicing'].includes(this.practiceOwner.phase)&&Math.hypot(this.practiceOwner.x-academyPractice(s).x,this.practiceOwner.z-academyPractice(s).z)>1.3)this.practiceOwner=null;
     for(const student of this.students){
       if(student.offDuty||student.commuting||!sim.clock.day)continue;
       if(student.phase==='learning'){student.timer-=dt*speed;const next=this.students.filter(a=>a.phase==='learning'&&a.timer<=0).sort((a,b)=>a.timer-b.timer||a.index-b.index)[0];if(student.timer<=0&&!this.practiceOwner&&next===student){this.practiceOwner=student;student.phase='toPractice';student.product=availableProducts(s)[(student.index+s.certifications)%availableProducts(s).length];student.typing=false;sim.move(student,academyPractice(s),1.25);}}
       else if(student.phase==='toPractice'&&student.reached){student.phase='practicing';student.working=true;student.timer=10;student.facing=Math.PI;}
-      else if(student.phase==='practicing'){student.timer-=dt*speed;if(student.timer<=0){s.certifications++;student.working=false;student.phase='returning';sim.events.push({id:`class-${s.certifications}`,kind:'graduation',x:student.x,z:student.z,time:sim.time});sim.move(student,academySeat(s,student.index),1.3);this.economy.emit();}}
-      else if(student.phase==='returning'&&student.reached){student.phase='learning';student.seated=true;student.typing=true;student.facing=Math.PI;student.timer=28+student.index*2;}
+      else if(student.phase==='practicing'){student.timer-=dt*speed;if(student.timer<=0){student.assessment=true;student.working=false;student.phase='returning';sim.move(student,academySeat(s,student.index),1.3);this.economy.emit();}}
+      else if(student.phase==='returning'&&student.reached){student.phase=student.assessment?'assessment':'learning';student.seated=true;student.typing=true;student.facing=Math.PI;student.timer=student.assessment?6:28+student.index*2;}
+      else if(student.phase==='assessment'){student.timer-=dt*speed;if(student.timer<=0){student.assessment=false;student.phase='learning';student.timer=28+student.index*2;s.certifications++;sim.events.push({id:`class-${s.certifications}`,kind:'graduation',x:student.x,z:student.z,time:sim.time});this.economy.emit();}}
     }
     const productionSpeed=(1+s.manufacturing*.2+s.automation*.08)*this.economy.trainingBonus()*this.economy.teamEfficiency('factoryWorker');
     for(const operator of this.operators){if(operator.offDuty||operator.commuting)continue;
@@ -47,7 +48,7 @@ export class CampusModel {
         else{
           const units=4+Math.min(4,s.qualityControl);
           if(this.economy.factoryTotal()+units>this.economy.factoryCapacity()){operator.timer=0;operator.working=false;continue;}
-          const keys=availableProducts(s),product=operator.index===0?'glass':keys.filter(key=>key!=='glass')[(operator.batchIndex||0)%(keys.length-1)];operator.batchIndex=(operator.batchIndex||0)+1;this.economy.addFactoryStock(product,units);if(product==='glass')s.producedGlass+=units;operator.phase='toCut';operator.working=false;
+          const keys=availableProducts(s),product=operator.index===0?'glass':keys.filter(key=>key!=='glass')[(operator.batchIndex||0)%(keys.length-1)];operator.batchIndex=(operator.batchIndex||0)+1;s.qualityInspections+=units;this.economy.addFactoryStock(product,units);if(product==='glass')s.producedGlass+=units;operator.phase='toCut';operator.working=false;
           this.economy.recordMovement('produce',product,units,'Fabricação','Saída da fábrica','Linha '+(operator.index+1));
           sim.events.push({id:`production-${s.producedGlass}`,kind:'production',x:operator.x,z:operator.z,time:sim.time});sim.move(operator,factoryStation(s,operator.index,0),1.2);this.economy.emit();
         }

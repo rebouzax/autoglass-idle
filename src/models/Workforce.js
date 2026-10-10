@@ -29,16 +29,16 @@ export function corporateTowers(s,l){
 export function workforceLayout(s,primaryRight){
   const columns=s.garageLevel>=7?6:3,spacing=s.garageLevel>=7?3.6:3,zoneWidth=columns*spacing+3.2,c=levelConfig(s);
   const capacities=STAFF_ROLES.map(role=>Math.max(0,c[role.capacity]-({worker:s.bays,cashier:3,logistics:c.activeCollectors,salesWorker:1,itWorker:Math.min(12,c.maxDevelopers),factoryWorker:1}[role.key]||0)));
-  const rowHeight=row=>Math.max(1,...row.map(count=>Math.ceil(count/columns)))*5.2+7;
+  const rowHeight=row=>Math.max(1,...row.map(count=>Math.ceil(count/columns)))*5.2+19;
   // Shop, logistics and commercial teams share the first row; finance, IT and factory the second.
-  const top=rowHeight([capacities[0],capacities[2],capacities[3]]),bottom=rowHeight([capacities[1],capacities[4],capacities[5]]);
-  return {spacing,left:primaryRight+8,right:primaryRight+8+zoneWidth*3,front:1.6,back:1.6-top-bottom,width:zoneWidth*3,columns,zoneWidth,top,bottom};
+  const floors=s.garageLevel>=7?Math.min(6,2+Math.floor((s.garageLevel-7)/2)):0;capacities[3]=Math.max(0,capacities[3]-floors*9);capacities[4]=Math.max(0,capacities[4]-floors*9);const top=rowHeight([capacities[0],capacities[2],capacities[3]]),bottom=rowHeight([capacities[1],capacities[4],capacities[5]]);
+  return {spacing,left:primaryRight+(s.garageLevel>=7?8:36),right:primaryRight+(s.garageLevel>=7?8:36)+zoneWidth*3,front:1.6,back:1.6-top-bottom,width:zoneWidth*3,columns,zoneWidth,top,bottom};
 }
 export function workforceCells(s,layout){
   const zones={worker:[0,0],logistics:[1,0],salesWorker:[2,0],cashier:[0,1],itWorker:[1,1],factoryWorker:[2,1]},cells=[];
   for(const role of STAFF_ROLES){
-    const [column,row]=zones[role.key],startZ=layout.front-(row?layout.top:0)-2.5;
-    for(let i=0;i<supportStaff(s,role.key);i++)cells.push({role:role.key,color:role.color,index:i,y:0,x:layout.left+2.5+column*layout.zoneWidth+(i%layout.columns)*(layout.spacing||2.4),z:startZ-Math.floor(i/layout.columns)*5.2,aisleX:layout.left+.7+column*layout.zoneWidth});
+    const [column,row]=zones[role.key],startZ=layout.front-(row?layout.top:0)-15;
+    for(let i=0;i<supportStaff(s,role.key);i++){const towerCount=s.garageLevel>=7&&['salesWorker','itWorker'].includes(role.key)?Math.min(6,2+Math.floor((s.garageLevel-7)/2))*9:0,j=i>=towerCount?i-towerCount:i;cells.push({role:role.key,color:role.color,index:i,y:0,x:layout.left+2.5+column*layout.zoneWidth+(j%layout.columns)*(layout.spacing||2.4),z:startZ-Math.floor(j/layout.columns)*5.2,aisleX:layout.left+.7+column*layout.zoneWidth});}
   }
   return cells;
 }

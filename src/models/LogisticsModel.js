@@ -1,6 +1,6 @@
 import {activeStaff} from './Workforce.js';
 import {travel} from './routes.js';
-import {getAddresses,rackPoint,scanStation,collectorHome,docks,cityRoads,roadExit,factoryPickup} from './ShopLayout.js';
+import {getAddresses,rackPoint,scanStation,collectorHome,docks,cityRoads,roadExit,factoryPickup,logisticsRoad} from './ShopLayout.js';
 import {availableProducts} from './Products.js';
 
 export class LogisticsModel{
@@ -18,7 +18,7 @@ export class LogisticsModel{
  freeAddress(sim){const candidates=getAddresses(this.economy.state).map((a,i)=>({i,total:this.economy.addressTotal(i)})).filter(a=>a.total+4<=12&&!this.workers.some(w=>w.address===a.i)&&!sim.rackOwners.has(a.i));candidates.sort((a,b)=>a.total-b.total||a.i-b.i);return candidates[0]?.i??-1;}
  accessStopLine(){return cityRoads(this.economy.state).xs[0]-11;}
  spawnTruck(dock){
-  const s=this.economy.state,lane=cityRoads(s).zs[1]+1.5,id=this.deliveryId++,keys=availableProducts(s),projection=Object.fromEntries(keys.map(k=>[k,this.economy.stock(k)+this.economy.warehouseTotal(k)]));
+  const s=this.economy.state,lane=logisticsRoad(s)+1.5,id=this.deliveryId++,keys=availableProducts(s),projection=Object.fromEntries(keys.map(k=>[k,this.economy.stock(k)+this.economy.warehouseTotal(k)]));
   let reserved=0;
   for(const truck of this.trucks)for(const parcel of truck.manifest.slice(truck.cursor)){reserved+=parcel.units;projection[parcel.product]+=parcel.units;}
   for(const worker of this.workers)if(worker.units){reserved+=worker.units;projection[worker.product]+=worker.units;}
@@ -62,7 +62,7 @@ export class LogisticsModel{
   worker.lastSource='truck';worker.address=address;worker.product=parcel.product;worker.units=parcel.units;worker.truckId=truck.id;worker.dock=truck.dock;worker.dockSlot=this.dockSlot(truck);worker.phase='toTruck';this.dockOwners.set(`${truck.dock}:${worker.dockSlot}`,worker);truck.remaining--;sim.move(worker,this.collectionPoint(worker),1.1*p);return true;
  }
  tick(dt,sim){
-  if(!this.enabled())return;this.time+=dt;this.sync(sim);const s=this.economy.state,lane=cityRoads(s).zs[1]+1.5,p=(1+s.logisticsProductivity*.3+s.officeComputers*.04+s.automation*.12+s.wmsLevel*.08)*this.economy.trainingBonus()*this.economy.teamEfficiency('logistics');this.nextDelivery-=dt;this.releaseAccess();
+  if(!this.enabled())return;this.time+=dt;this.sync(sim);const s=this.economy.state,lane=logisticsRoad(s)+1.5,p=(1+s.logisticsProductivity*.3+s.officeComputers*.04+s.automation*.12+s.wmsLevel*.08)*this.economy.trainingBonus()*this.economy.teamEfficiency('logistics');this.nextDelivery-=dt;this.releaseAccess();
   const output=sim.campus.outputOwner;if(output&&!['toFactory','collectFactory'].includes(output.phase)&&Math.hypot(output.x-factoryPickup(s).x,output.z-factoryPickup(s).z)>1.35)sim.campus.outputOwner=null;
   const safe=!this.trucks.some(t=>t.phase!=='unloading')&&!sim.cars.some(c=>['arriving','reversing'].includes(c.phase))&&!sim.orders.couriers.some(c=>['arriving','reversing'].includes(c.phase)),footprintSafe=!sim.orders.couriers.some(c=>c.phase!=='gone'&&c.x<roadExit(s)-10);if(this.economy.constructionSafe!==safe||this.economy.footprintSafe!==footprintSafe){this.economy.constructionSafe=safe;this.economy.footprintSafe=footprintSafe;this.economy.emit();}
   const free=docks(s).find(d=>!this.trucks.some(t=>t.dock===d.index)),approaching=this.trucks.some(t=>t.phase==='queued'||t.phase==='arriving');
@@ -85,12 +85,14 @@ export class LogisticsModel{
   for(const worker of this.workers){if(worker.offDuty||worker.commuting)continue;
    if(worker.phase==='idle'||worker.phase==='available'){
     if(this.assignParcel(worker,sim,p))continue;
-    if(s.wmsLevel>0&&this.time>(this.nextAudit||35)&&this.workers.filter(w=>['toAudit','auditing'].includes(w.phase)).length<(s.garageLevel>=7?6:1)){
+    if(s.wmsLevel>0&&this.time>(this.nextAudit||35)&&this.workers.filter(w=>['toAudit','auditing'].includes(w.phase)).length<(s.garageLevel>=7?12:2)){
       const count=getAddresses(s).length,start=(this.auditCursor||0)%count,address=Array.from({length:count},(_,i)=>(start+i)%count).find(i=>this.economy.addressTotal(i)>0&&!sim.rackOwners.has(i));
-      if(address!==undefined&&sim.claimRack(address,worker)){this.auditCursor=address+1;worker.address=address;worker.phase='toAudit';this.nextAudit=this.time+(s.garageLevel>=7?3:40/(1+s.wmsLevel*.2));sim.move(worker,rackPoint(address),1.15*p);continue;}
+      if(address!==undefined&&sim.claimRack(address,worker)){this.auditCursor=address+1;worker.address=address;worker.phase='toAudit';this.nextAudit=this.time+(s.garageLevel>=7?1.6:30/(1+s.wmsLevel*.2));sim.move(worker,rackPoint(address),1.15*p);continue;}
     }
-    if(worker.phase==='available'){worker.phase='returning';sim.move(worker,collectorHome(s,worker.index),1.15*p);}
-   }else if(worker.phase==='toTruck'&&worker.reached){worker.phase='collecting';worker.timer=1.6;worker.working=true;worker.facing=-Math.PI/2;}
+    if(worker.phase==='idle'&&this.workers.filter(w=>['toStationCheck','stationCheck'].includes(w.phase)).length<Math.max(2,Math.ceil(this.workers.length/4))&&this.time>(worker.nextStationCheck??(20+worker.index*.7))){worker.phase='toStationCheck';sim.move(worker,scanStation(s,worker.index),1.1*p);continue;}if(worker.phase==='available'){worker.phase='returning';sim.move(worker,collectorHome(s,worker.index),1.15*p);}
+   }else if(worker.phase==='toStationCheck'&&worker.reached){worker.phase='stationCheck';worker.scanning=true;worker.timer=2;worker.facing=Math.PI;}
+   else if(worker.phase==='stationCheck'){worker.timer-=dt*p;if(worker.timer<=0){s.wmsStationChecks++;worker.scanning=false;worker.nextStationCheck=this.time+35+worker.index%19;worker.phase='returning';sim.move(worker,collectorHome(s,worker.index),1.1*p);}}
+   else if(worker.phase==='toTruck'&&worker.reached){worker.phase='collecting';worker.timer=1.6;worker.working=true;worker.facing=-Math.PI/2;}
    else if(worker.phase==='toFactory'&&worker.reached){worker.phase='collectFactory';worker.timer=1.6;worker.working=true;worker.facing=Math.PI/2;}
    else if(['collecting','collectFactory'].includes(worker.phase)){worker.timer-=dt*p;if(worker.timer<=0){this.economy.recordMovement('receive',worker.product,worker.units,worker.lastSource==='factory'?'Fábrica':'Doca '+(worker.dock+1),'Conferência',worker.truckId||'Produção própria');worker.working=false;worker.carryingBox=true;worker.phase='toScan';sim.move(worker,scanStation(s,worker.index),1.05*p);}}
    else if(worker.phase==='toScan'&&worker.reached){worker.phase='scanning';worker.scanning=true;worker.facing=Math.PI;worker.timer=1.8;}

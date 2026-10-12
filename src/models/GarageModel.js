@@ -3,7 +3,7 @@ import {StaffOperationsModel} from './StaffOperationsModel.js';
 import {activeStaff} from './Workforce.js';
 import {advance,travel} from './routes.js';
 import {NavigationSystem,touchesRectangle,actorRadius} from './NavigationSystem.js';
-import {CityTrafficModel,vehicleBounds,vehicleCollisionBlocks,vehicleSpeedLimit,signalSpeedLimit,obeysSignals} from './CityTrafficModel.js';
+import {CityTrafficModel,vehicleBounds,vehicleCollisionBlocks,vehiclePedestrianBlocks,vehicleSpeedLimit,signalSpeedLimit,obeysSignals} from './CityTrafficModel.js';
 import {OfficeModel} from './OfficeModel.js';
 import {LogisticsModel} from './LogisticsModel.js';
 import {OrdersModel} from './OrdersModel.js';
@@ -32,7 +32,7 @@ export class GarageModel{
     for(const car of [...this.cars,...this.orders.couriers])if(car.z<driveway(s).front)obstacles.push(vehicleBounds(car));
     for(const truck of this.logistics.trucks)if(truck.z>l.plotBack-.5)obstacles.push(vehicleBounds(truck));
     this.navigation.configure(obstacles,{minX:s.garageLevel>=2?-12.6:-11,maxX:l.plotRight-.3,minZ:l.plotBack+.8,maxZ:driveway(s).front+.4},invalidate);this.navigation.roomOf=p=>roomOf(p,s);
-    const portalX=(l.right+l.officeLeft)/2;this.navigation.roomBounds={lounge:{minX:l.left+.2,maxX:-2.7,minZ:l.back+.15,maxZ:l.front-.1},shop:{minX:-2.7,maxX:portalX,minZ:l.back,maxZ:l.front-.1},cl:{minX:-12.2,maxX:l.right-.2,minZ:l.clBack+.2,maxZ:l.back},office:{minX:portalX,maxX:l.officeRight-.15,minZ:l.officeBack,maxZ:l.officeFront},it:{minX:l.officeLeft+.2,maxX:l.officeRight-.15,minZ:l.itBack+.2,maxZ:l.itFront},yard:{minX:portalX,maxX:l.officeRight+.55,minZ:l.officeFront,maxZ:driveway(s).front+.35}};
+    const portalX=(l.right+l.officeLeft)/2;this.navigation.roomBounds={lounge:{minX:l.left+.2,maxX:-2.7,minZ:l.back+.15,maxZ:l.front-.1},shop:{minX:-2.7,maxX:portalX,minZ:l.back,maxZ:l.front-.1},cl:{minX:-12.2,maxX:l.right-.2,minZ:l.clBack+.2,maxZ:l.back},office:{minX:portalX,maxX:l.officeRight-.15,minZ:l.officeBack,maxZ:l.officeFront},it:{minX:l.officeLeft+.2,maxX:l.officeRight-.15,minZ:l.itBack+.2,maxZ:l.itFront},yard:{minX:l.plotLeft+.3,maxX:l.plotRight-.3,minZ:l.plotBack+.8,maxZ:driveway(s).front+.35}};
     if(s.garageLevel>=8){this.navigation.roomBounds.yard.maxX=l.plotRight-.3;this.navigation.roomBounds.academy={minX:l.academyLeft,maxX:l.academyRight,minZ:-13.5,maxZ:1.6};}
     if(s.garageLevel>=14)this.navigation.roomBounds.factory={minX:l.academyLeft,maxX:l.factoryRight,minZ:-36,maxZ:-13.5};
     this.navSignature=this.layoutSignature();
@@ -51,7 +51,7 @@ export class GarageModel{
     for(const [index,actor] of this.rackOwners)if(!['toTruck','collecting','toFactory','collectFactory','toScan','scanning','toRack','storing','toWarehouse','collectStock','toAudit','auditing'].includes(actor.phase)&&Math.hypot(actor.x-rackPoint(index).x,actor.z-rackPoint(index).z)>1.25)this.rackOwners.delete(index);
   }
   spawn(){
-    if(!this.clock.day)return;const access=driveway(this.economy.state);if(this.vehicles().some(v=>Math.hypot(v.x+58,v.z-access.arrival)<5.5))return;
+    const access=driveway(this.economy.state);if(this.vehicles().some(v=>Math.hypot(v.x+58,v.z-access.arrival)<5.5))return;
     const s=this.economy.state,bay=Array.from({length:s.bays},(_,i)=>i).find(i=>!this.cars.some(c=>c.bay===i&&c.phase!=='gone'&&!(c.phase==='leaving'&&c.x>bayX(i)+4)));if(bay===undefined)return;
     const resumed=s.orders.find(o=>o.source==='counter'&&o.carId===null&&o.phase!=='delivered');const id=this.nextId++,keys=availableProducts(s),product=resumed?.product||keys[id%keys.length],motorcycle=product==='motoMirror',pickup=!!resumed||s.garageLevel>=2&&id%5===3;
     const car={id,bay,product,vehicleType:motorcycle?'moto':'car',halfLength:motorcycle?1.1:1.6,halfWidth:motorcycle?.49:.94,color:palette[id%palette.length],phase:'arriving',x:-58,z:access.arrival,facing:Math.PI/2,speed:0,isCar:true,glass:product==='glass'?0:1,progress:0,driver:{...person(0,0),id:`client-${id}`,visible:false},wait:0,patience:40+(id%4)*4,paid:false,complained:false,workerId:null,cashierId:null,pickup,bill:this.economy.saleValue(product)};
@@ -59,7 +59,7 @@ export class GarageModel{
     travel(car,[[-58,access.arrival],[bayX(bay),access.arrival],[bayX(bay),-1.6]],5.2);this.cars.push(car);
   }
   sendToLounge(car){car.driver.phase='toLounge';car.driver.complaining=false;this.move(car.driver,loungeSpot(car.bay),1.25);}
-  vehicles(){return [...this.cars,...this.orders.couriers,...this.city.cars,...this.logistics.trucks,...this.advanced.trucks,...this.staff.vehicles()];}
+  vehicles(){return [...this.cars,...this.orders.couriers,...this.city.cars,...this.logistics.trucks,...this.advanced.trucks];}
   needsManeuver(car){const s=this.economy.state;return (typeof car.id==='number'||car.delivery)&&(['reversing'].includes(car.phase)||car.phase==='leaving'&&car.x<shopLayout(s).plotRight+3||car.phase==='arriving'&&car.z<driveway(s).arrival-.35);}
   maneuverAllowed(car){
     if(!this.needsManeuver(car))return true;
@@ -79,8 +79,8 @@ export class GarageModel{
   advanceVehicle(actor,dt){
     if(this.needsManeuver(actor))actor.maneuverSince??=this.time;else actor.maneuverSince=null;
     if(!this.maneuverAllowed(actor)){actor.speed=0;actor.moving=false;actor.waitReason='manobra';actor.stoppedFor=(actor.stoppedFor||0)+dt;return false;}
-    const snapshot={...actor},vehicles=this.vehicles().filter(v=>Math.abs(v.x-actor.x)<28&&Math.abs(v.z-actor.z)<28);actor.targetSpeed=signalSpeedLimit(actor,this.time,this.city.roads,vehicleSpeedLimit(actor,vehicles,(actor.baseSpeed??=actor.targetSpeed)*this.weather.roadSpeed));const complete=advance(actor,dt),body=vehicleBounds(actor);
-    const red=!obeysSignals(snapshot,actor,this.time,this.city.roads),pedestrian=[...this.people(),...this.staff.externalPeople()].some(p=>Math.abs(p.x-actor.x)<9&&Math.abs(p.z-actor.z)<9&&touchesRectangle(p.x,p.z,actorRadius(p),body))||this.city.pedestrians.some(p=>Math.abs(p.x-actor.x)<9&&Math.abs(p.z-actor.z)<9&&touchesRectangle(p.x,p.z,.36,body)),traffic=vehicles.some(other=>other!==actor&&vehicleCollisionBlocks(snapshot,actor,other));
+    const snapshot={...actor},vehicles=this.vehicles().filter(v=>Math.abs(v.x-actor.x)<28&&Math.abs(v.z-actor.z)<28);actor.targetSpeed=signalSpeedLimit(actor,this.time,this.city.roads,vehicleSpeedLimit(actor,vehicles,(actor.baseSpeed??=actor.targetSpeed)*this.weather.roadSpeed));const complete=advance(actor,dt);
+    const red=!obeysSignals(snapshot,actor,this.time,this.city.roads),pedestrian=[...this.people(),...this.staff.externalPeople()].some(p=>Math.abs(p.x-actor.x)<9&&Math.abs(p.z-actor.z)<9&&vehiclePedestrianBlocks(snapshot,actor,p,actorRadius(p)))||this.city.pedestrians.some(p=>Math.abs(p.x-actor.x)<9&&Math.abs(p.z-actor.z)<9&&vehiclePedestrianBlocks(snapshot,actor,p,.36)),traffic=vehicles.some(other=>other!==actor&&vehicleCollisionBlocks(snapshot,actor,other));
     if(red||pedestrian||traffic){Object.assign(actor,snapshot);actor.speed=0;actor.moving=false;actor.waitReason=red?'semáforo':pedestrian?'pedestre':'trânsito';actor.stoppedFor=(actor.stoppedFor||0)+dt;return false;}actor.waitReason=null;actor.stoppedFor=0;return complete;
   }
   people(){return [...this.cashiers,...this.workers,...this.logistics.workers,...this.office.people(),...this.it.workers,...this.campus.people(),...this.orders.workers(),...this.cars.filter(c=>c.driver.visible).map(c=>c.driver)].filter(a=>!a.offDuty);}
@@ -98,8 +98,8 @@ export class GarageModel{
   tick(dt){
     if(!dt)return;this.navigation.beginStep();this.clock.tick(dt);this.time+=dt;this.weather.tick(dt);this.syncStaff();this.releaseStations();this.events=this.events.filter(e=>this.time-e.time<1.8);this.arrival-=dt;
     if(this.navSignature!==this.layoutSignature())this.configureNavigation();
-    this.city.configure(this.economy.state);this.city.tick(dt,[...this.cars,...this.orders.couriers,...this.logistics.trucks,...this.advanced.trucks,...this.staff.vehicles()],this.weather.roadSpeed);
-    this.staff.tick(dt,this);this.logistics.tick(dt,this);this.office.tick(dt,this);this.it.tick(dt,this);this.campus.tick(this.clock.day?dt:0,this);this.orders.tick(dt,this);this.advanced.tick(dt,this);
+    this.city.configure(this.economy.state);this.city.tick(dt,[...this.cars,...this.orders.couriers,...this.logistics.trucks,...this.advanced.trucks],this.weather.roadSpeed);
+    this.staff.tick(dt,this);this.logistics.tick(dt,this);this.office.tick(dt,this);this.it.tick(dt,this);this.campus.tick(dt,this);this.orders.tick(dt,this);this.advanced.tick(dt,this);
     if(this.arrival<=0){this.spawn();this.arrival=this.economy.state.garageLevel===1?8:Math.max(3,9-this.economy.state.workers*.45);}
     for(const car of this.cars){
       if(car.phase==='arriving'&&this.advanceVehicle(car,dt)){const door={x:car.x-(car.vehicleType==='moto'?1:1.65),z:car.z-.05};if(this.people().some(a=>Math.hypot(a.x-door.x,a.z-door.z)<.95)){car.waitReason='desembarque';continue;}const order=this.economy.state.orders.find(o=>o.id===car.orderId);car.phase=car.pickup?(order?.phase==='counterReady'?'finished':'working'):'waiting';car.driver.x=car.x-(car.vehicleType==='moto'?1:1.65);car.driver.z=car.z-.05;car.driver.visible=true;this.configureNavigation();this.sendToLounge(car);}

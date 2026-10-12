@@ -1,6 +1,6 @@
 import {activeStaff} from './Workforce.js';
 import {travel} from './routes.js';
-import {getAddresses,rackPoint,scanStation,collectorHome,docks,cityRoads,roadExit,factoryPickup,logisticsRoad} from './ShopLayout.js';
+import {getAddresses,rackPoint,scanStation,collectorHome,docks,roadExit,factoryPickup,logisticsAccess} from './ShopLayout.js';
 import {availableProducts} from './Products.js';
 
 export class LogisticsModel{
@@ -16,21 +16,20 @@ export class LogisticsModel{
   while(this.workers.length<activeStaff(s,'logistics')){const index=this.workers.length,p=collectorHome(s,index);if(sim?.people().some(a=>Math.hypot(a.x-p.x,a.z-p.z)<.95))break;this.workers.push({...p,id:`cl-${index}`,index,phase:'idle',seated:true,moving:false,walk:0,carryingBox:false,scanning:false,reached:true});}this.signature=signature;
  }
  freeAddress(sim){const candidates=getAddresses(this.economy.state).map((a,i)=>({i,total:this.economy.addressTotal(i)})).filter(a=>a.total+4<=12&&!this.workers.some(w=>w.address===a.i)&&!sim.rackOwners.has(a.i));candidates.sort((a,b)=>a.total-b.total||a.i-b.i);return candidates[0]?.i??-1;}
- accessStopLine(){return cityRoads(this.economy.state).xs[0]-11;}
  spawnTruck(dock){
-  const s=this.economy.state,lane=logisticsRoad(s)+1.5,id=this.deliveryId++,keys=availableProducts(s),projection=Object.fromEntries(keys.map(k=>[k,this.economy.stock(k)+this.economy.warehouseTotal(k)]));
+  const s=this.economy.state,access=logisticsAccess(s),lane=access.lane,id=this.deliveryId++,keys=availableProducts(s),projection=Object.fromEntries(keys.map(k=>[k,this.economy.stock(k)+this.economy.warehouseTotal(k)]));
   let reserved=0;
   for(const truck of this.trucks)for(const parcel of truck.manifest.slice(truck.cursor)){reserved+=parcel.units;projection[parcel.product]+=parcel.units;}
   for(const worker of this.workers)if(worker.units){reserved+=worker.units;projection[worker.product]+=worker.units;}
   const capacity=getAddresses(s).length*12-this.economy.warehouseTotal()-reserved,manifest=[];
   for(let i=0;i<Math.min(8,Math.floor(capacity/4));i++){const product=[...keys].sort((a,b)=>projection[a]-projection[b])[0];projection[product]+=4;manifest.push({product,units:4});}if(!manifest.length)return false;
-  // The waiting line is before the crossing. A waiting trailer cannot block the alley exit.
-  const t={id:`delivery-${id}`,sequence:id,dock:dock.index,lane,x:-58,z:lane,facing:Math.PI/2,isCar:true,halfLength:3.65,halfWidth:1.12,phase:'queued',atGate:false,remaining:manifest.length,manifest,cursor:0,speed:0};
-  travel(t,[[-58,lane],[this.accessStopLine(),lane]],2.9);this.trucks.push(t);return true;
+  // Enter from outside the map, stopping before the public intersection if the apron is busy.
+  const t={id:`delivery-${id}`,sequence:id,dock:dock.index,lane,mergeX:access.mergeX,x:access.startX,z:lane,facing:Math.PI/2,isCar:true,halfLength:3.65,halfWidth:1.12,phase:'queued',atGate:false,remaining:manifest.length,manifest,cursor:0,speed:0};
+  travel(t,[[access.startX,lane],[access.stopX,lane]],6);this.trucks.push(t);return true;
  }
  releaseAccess(){
   const owner=this.accessOwner;
-  if(owner&&(!this.trucks.includes(owner)||owner.phase==='unloading'||owner.phase==='gone'||owner.phase==='leaving'&&owner.x>-12))this.accessOwner=null;
+  if(owner&&(!this.trucks.includes(owner)||owner.phase==='unloading'||owner.phase==='gone'||owner.phase==='leaving'&&owner.x>=owner.mergeX))this.accessOwner=null;
  }
  accessAllowed(truck){
   this.releaseAccess();
@@ -42,14 +41,15 @@ export class LogisticsModel{
   return this.accessOwner===truck;
  }
  startApproach(truck){
-  const dock=docks(this.economy.state)[truck.dock];if(!dock)return false;
+  const s=this.economy.state,dock=docks(s)[truck.dock],access=logisticsAccess(s);if(!dock)return false;
   truck.phase='arriving';truck.waitReason=null;truck.atGate=false;
   // The last bend parks the cab facing the road, so departure continues forwards.
-  travel(truck,[[truck.x,truck.z],[-18.5,truck.lane],[-18.5,dock.z+2.5],[-14.3,dock.z+2.5],[-14.3,dock.z]],2.9);return true;
+  travel(truck,[[truck.x,truck.z],[access.entryX,truck.lane],[access.entryX,dock.z+2.5],[dock.x,dock.z+2.5],[dock.x,dock.z]],2.9);return true;
  }
  beginDeparture(truck,sim){
+  const access=logisticsAccess(this.economy.state);truck.mergeX=access.mergeX;
   truck.phase='departing';truck.accessRequestedAt=this.time;truck.waitReason=null;
-  travel(truck,[[truck.x,truck.z],[truck.x,truck.z-2.8],[-18.5,truck.z-2.8],[-18.5,truck.lane],[-12,truck.lane]],2.4);sim.configureNavigation();
+  travel(truck,[[truck.x,truck.z],[truck.x,truck.z-2.8],[access.entryX,truck.z-2.8],[access.entryX,truck.lane],[access.mergeX,truck.lane]],2.4);sim.configureNavigation();
  }
  assignParcel(worker,sim,p){
   const s=this.economy.state;
@@ -62,12 +62,12 @@ export class LogisticsModel{
   worker.lastSource='truck';worker.address=address;worker.product=parcel.product;worker.units=parcel.units;worker.truckId=truck.id;worker.dock=truck.dock;worker.dockSlot=this.dockSlot(truck);worker.phase='toTruck';this.dockOwners.set(`${truck.dock}:${worker.dockSlot}`,worker);truck.remaining--;sim.move(worker,this.collectionPoint(worker),1.1*p);return true;
  }
  tick(dt,sim){
-  if(!this.enabled())return;this.time+=dt;this.sync(sim);const s=this.economy.state,lane=logisticsRoad(s)+1.5,p=(1+s.logisticsProductivity*.3+s.officeComputers*.04+s.automation*.12+s.wmsLevel*.08)*this.economy.trainingBonus()*this.economy.teamEfficiency('logistics');this.nextDelivery-=dt;this.releaseAccess();
+  if(!this.enabled())return;this.time+=dt;this.sync(sim);const s=this.economy.state,access=logisticsAccess(s),lane=access.lane,p=(1+s.logisticsProductivity*.3+s.officeComputers*.04+s.automation*.12+s.wmsLevel*.08)*this.economy.trainingBonus()*this.economy.teamEfficiency('logistics');this.nextDelivery-=dt;this.releaseAccess();
   const output=sim.campus.outputOwner;if(output&&!['toFactory','collectFactory'].includes(output.phase)&&Math.hypot(output.x-factoryPickup(s).x,output.z-factoryPickup(s).z)>1.35)sim.campus.outputOwner=null;
   const safe=!this.trucks.some(t=>t.phase!=='unloading')&&!sim.cars.some(c=>['arriving','reversing'].includes(c.phase))&&!sim.orders.couriers.some(c=>['arriving','reversing'].includes(c.phase)),footprintSafe=!sim.orders.couriers.some(c=>c.phase!=='gone'&&c.x<roadExit(s)-10);if(this.economy.constructionSafe!==safe||this.economy.footprintSafe!==footprintSafe){this.economy.constructionSafe=safe;this.economy.footprintSafe=footprintSafe;this.economy.emit();}
   const free=docks(s).find(d=>!this.trucks.some(t=>t.dock===d.index)),approaching=this.trucks.some(t=>t.phase==='queued'||t.phase==='arriving');
   // One incoming delivery at a time keeps the public road clear; docks unload concurrently.
-  if(free&&!approaching&&this.nextDelivery<=0&&this.freeAddress(sim)>=0&&this.economy.warehouseTotal()<getAddresses(s).length*10&&!sim.vehicles().some(v=>Math.hypot(v.x+58,v.z-lane)<7)){if(this.spawnTruck(free))this.nextDelivery=6;}
+  if(free&&!approaching&&this.nextDelivery<=0&&this.freeAddress(sim)>=0&&this.economy.warehouseTotal()<getAddresses(s).length*10&&!sim.vehicles().some(v=>Math.hypot(v.x-access.startX,v.z-lane)<7)){if(this.spawnTruck(free))this.nextDelivery=6;}
   for(const truck of this.trucks){
    if(truck.phase==='unloading')truck.lane=lane;
    if(truck.phase==='queued'){
@@ -78,7 +78,7 @@ export class LogisticsModel{
    if(['arriving','reversing','departing'].includes(truck.phase)&&!this.accessAllowed(truck)){truck.speed=0;truck.moving=false;truck.waitReason='acesso à doca';continue;}
    if(truck.phase==='arriving'&&sim.advanceVehicle(truck,dt)){truck.phase='unloading';truck.speed=0;truck.unloadingAt=this.time;truck.waitReason=null;this.releaseAccess();sim.configureNavigation();}
    if(truck.phase==='reversing'&&sim.advanceVehicle(truck,dt))this.beginDeparture(truck,sim);
-   if(truck.phase==='departing'&&sim.advanceVehicle(truck,dt)){truck.phase='leaving';travel(truck,[[truck.x,truck.z],[roadExit(s),truck.lane]],3.4);this.releaseAccess();}
+   if(truck.phase==='departing'&&sim.advanceVehicle(truck,dt)){truck.phase='leaving';travel(truck,[[truck.x,truck.z],[access.endX,truck.lane]],6);this.releaseAccess();}
    if(truck.phase==='leaving'&&sim.advanceVehicle(truck,dt)){truck.phase='gone';this.releaseAccess();sim.configureNavigation();}
   }
   for(const [id,w] of this.dockOwners){const dock=docks(s)[w.dock];if(!dock||!this.workers.includes(w)||!['toTruck','collecting'].includes(w.phase)&&Math.hypot(w.x-this.collectionPoint(w).x,w.z-this.collectionPoint(w).z)>1.1)this.dockOwners.delete(id);}

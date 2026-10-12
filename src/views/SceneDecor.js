@@ -1,4 +1,4 @@
-import {onCityRoad,employeeHome,parkingGate,logisticsRoad} from '../models/ShopLayout.js';
+import {onCityRoad,logisticsAccess,driveway} from '../models/ShopLayout.js';
 import * as THREE from 'three';
 import {activeStaff} from '../models/Workforce.js';
 import {box,roundedBox,cylinder,tree,batchStatic} from './LowPolyAssets.js';
@@ -86,10 +86,10 @@ function smallPark(parent,x,z,width=8){
 }
 
 export function addCityDetails(city,state,l,roads,extent,buildings=[]){
-  const occupied=(x,z,r=2)=>state.garageLevel>=2&&x>-63-r&&x<-12+r&&Math.abs(z-logisticsRoad(state))<5+r||(x+r>l.plotLeft&&x-r<l.plotRight&&z+r>l.plotBack&&z-r<6.6+(state.storeExpansion||0))||(state.garageLevel>=15&&(Math.abs(z-32)<r+4||Math.abs(x+46)<r+4||x>-84-r&&x<-46+r&&z>l.plotBack-5&&z<5))||(state.garageLevel>=16&&z>43-r)||(z<l.plotBack-10+r&&z>l.plotBack-150-r&&x>employeeHome(l,0).house.x-6-r&&x<l.employeeParking.right+8+r)||Math.abs(x-parkingGate(l))<r+8;const curb=state.garageLevel>=6?4.6:3.42;
+  const access=logisticsAccess(state),occupied=(x,z,r=2)=>state.garageLevel>=2&&Math.abs(x-access.entryX)<3.4+r&&z+r>access.road&&z-r<l.plotBack+2||(x+r>l.plotLeft&&x-r<l.plotRight&&z+r>l.plotBack&&z-r<driveway(state).front)||(state.garageLevel>=15&&(Math.abs(z-32)<r+4||Math.abs(x+46)<r+4||x>-84-r&&x<-46+r&&z>l.plotBack-5&&z<5))||(state.garageLevel>=16&&z>43-r);const curb=state.garageLevel>=6?4.6:3.42;
   for(const z of roads.zs){
     for(const side of [-1,1]){
-      for(let x=-extent/2+1;x<extent/2;x+=2){if(roads.xs.some(v=>Math.abs(x-v)<6)||Math.abs(x-parkingGate(l))<8)continue;box(city,'#aabac0',[2,.11,.14],[x,.095,z+side*curb]);}
+      for(let x=-extent/2+1;x<extent/2;x+=2){if(roads.xs.some(v=>Math.abs(x-v)<6)||side===-1&&z===roads.zs[0]&&x>-12&&x<l.officeRight+1||state.garageLevel>=2&&side===1&&z===access.road&&Math.abs(x-access.entryX)<4.5)continue;box(city,'#aabac0',[2,.11,.14],[x,.095,z+side*curb]);}
       for(let x=-extent/2+4;x<extent/2-4;x+=14){
         if(roads.xs.some(v=>Math.abs(x-v)<8)||occupied(x,z+side*(curb+2.2),1.2))continue;
         box(city,'#c3d2c6',[2.25,.11,1.3],[x,.06,z+side*(curb+2.2)]);

@@ -1,4 +1,4 @@
-import {activeStaff,workforceLayout,staffCapacity} from './Workforce.js';
+import {activeStaff,workforceLayout} from './Workforce.js';
 import {rectangle} from './NavigationSystem.js';
 import {levelConfig} from './Progression.js';
 export const bayX=index=>1.25+index*5.2;
@@ -16,7 +16,7 @@ export const dispatchBay=(s,i)=>({x:shopLayout(s).officeLeft+3.45+i*4.6,z:drivew
 export const dispatchPoint=(s,i)=>({x:dispatchBay(s,i).x-1.8,z:dispatchBay(s,i).z-1.1});
 export const courierSeat=(s,i)=>({x:dispatchBay(s,i).x-1.8,z:dispatchBay(s,i).z+.4});
 export const frontDoor={x:-6.1,z:3.2};
-export const driveway=s=>({arrival:8.8+(s.storeExpansion||0),exit:6.8+(s.storeExpansion||0),front:6.6+(s.storeExpansion||0)});
+export const driveway=s=>{const space=(s.storeExpansion||0)+(s.garageLevel>=3?3:0),street=10+space,half=s.garageLevel>=6?4.5:3.2;return{street,arrival:street-1.5,exit:street-1.5,front:street-half-.35};};
 export const clDoor={x:13.1,z:-9.2};
 export const scanPoint={x:-7.6,z:-14.6};
 export const dockPoint={x:-11.7,z:-15.2};
@@ -29,20 +29,24 @@ export function shopLayout(s={garageLevel:1}){
  const primaryRight=stage>=14?factoryRight:stage>=8?academyRight:stage>=4?officeRight:right;
  const workforce=stage>=3?workforceLayout(s,primaryRight):null;
  const campusBack=Math.min(workforce?workforce.back-.7:0,stage>=7?Math.min(clBack-.7,-58-(stage-7)*5):stage>=6?Math.min(clBack-.7,-30):stage>=2?clBack-.7:-10.5),plotLeft=stage>=2?-21.5:-11.4;
- const parkingLeft=stage>=7?officeLeft+8:stage>=2?primaryRight+4:-9.3,parkingRoom=stage>=7?workforce.left-9-parkingLeft:stage>=2?24:16.4,columns=Math.max(2,Math.floor((parkingRoom-4)/3.1)),capacity=Math.ceil(staffCapacity(s)*.65)+4,rows=Math.ceil(capacity/columns),parkingWidth=columns*3.1+4,parkingFront=stage>=7?-62:stage>=2?1.6:-12.5;
- const employeeParking={columns,rows,capacity,left:parkingLeft,right:parkingLeft+parkingWidth,front:parkingFront,back:parkingFront-rows*10.8-7,access:stage>=7?'left':'right'};
- const plotRight=Math.max(workforce?workforce.right+1.3:primaryRight+1.3,employeeParking.right+14),plotBack=Math.min(campusBack,employeeParking.back-2);
- return{campusBack,employeeParking,left:-10.3,right,front,back:-9.2,clBack,stage,officeLeft,officeRight,officeBack:-13.5,officeFront:1.6,itBack:-29,itFront:-13.5,academyLeft,academyRight,factoryRight,workforce,plotLeft,plotRight,plotBack};
+ const plotRight=workforce?workforce.right+1.3:primaryRight+1.3,plotBack=campusBack;
+ return{campusBack,left:-10.3,right,front,back:-9.2,clBack,stage,officeLeft,officeRight,officeBack:-13.5,officeFront:1.6,itBack:-29,itFront:-13.5,academyLeft,academyRight,factoryRight,workforce,plotLeft,plotRight,plotBack};
 }
 export function docks(s){const l=shopLayout(s),count=Math.min(levelConfig(s).docks,1+Math.floor((l.back-l.clBack-10)/10.2));return Array.from({length:Math.max(1,count)},(_,i)=>({id:`dock-${i}`,index:i,x:-14.3,z:-15.2-i*10.2,point:{x:-11.7,z:-15.2-i*10.2}}));}
 export const collectorHome=(s,i)=>({x:s.garageLevel>=7&&i%2?shopLayout(s).right-1.4:14.8,z:-11.5-Math.floor(i/(s.garageLevel>=7?2:1))*2.1,facing:-Math.PI/2});
 export const scanStation=(s,i)=>({x:(s.garageLevel>=7&&Math.floor(i/2)%2?shopLayout(s).right-8.4:-7.6)+(i%2)*1.35,z:-14.6-Math.floor(i/(s.garageLevel>=7?4:2))*4.4});
-export function cityRoads(s={garageLevel:1}){const l=shopLayout(s);return{xs:[-28.5,Math.max(22,l.plotRight+(s.garageLevel>=6?30:6))],zs:[10+(s.storeExpansion||0),l.plotBack-7,38]};}
-export function employeeHome(l,number){const columns=Math.min(25,Math.max(1,Math.ceil(staffCapacity({garageLevel:l.stage})/2))),house=Math.floor(number/2),raw=l.employeeParking.left-(columns*6.4+30)+(house%columns)*6.4,x=raw>-35?raw+14:raw,z=l.plotBack-18-Math.floor(house/columns)*12.4;return {house:{x,z},home:{x:x+(number%2?1:-1)*1.65,z:z+2.9}};}
-export const parkingGate=(l,arriving=false)=>l.employeeParking.access==='left'?l.employeeParking.left-(arriving?1.2:5.6):l.employeeParking.right+(arriving?12.4:8);
+export function cityRoads(s={garageLevel:1}){const l=shopLayout(s);return{xs:[-28.5,Math.max(22,l.plotRight+(s.garageLevel>=6?30:6))],zs:[driveway(s).street,l.plotBack-7,38]};}
 export function onCityRoad(s,x,z,r=0){const roads=cityRoads(s),half=s.garageLevel>=6?4.7:3.7;return roads.xs.some(v=>Math.abs(x-v)<half+r)||roads.zs.some(v=>Math.abs(z-v)<half+r);}
-export const logisticsRoad=s=>shopLayout(s).clBack-7;
 export const roadExit=s=>Math.max(100,shopLayout(s).plotRight+32);
+export function cityExtent(s){
+ const l=shopLayout(s),roads=cityRoads(s),stage=s.garageLevel;
+ return Math.max(stage>=6?230+(stage-6)*20:116+stage*12,l.plotRight*2+44,Math.abs(l.plotBack)*2+64,(roadExit(s)+20)*2,(roads.xs[1]+34)*2);
+}
+// Supply trucks share the rear public street; only the dock apron is private.
+export function logisticsAccess(s){
+ const roads=cityRoads(s),road=roads.zs[1],edge=cityExtent(s)/2+5;
+ return {road,lane:road+1.5,entryX:-18.5,mergeX:-12,stopX:roads.xs[0]-11,startX:-edge,endX:edge};
+}
 export function officeDesk(s,i){const l=shopLayout(s),cols=s.garageLevel>=7?4:s.garageLevel>=5?3:2,row=Math.floor(i/cols);return{x:l.officeLeft+(s.garageLevel>=7?6:4.1)+(i%cols)*4.4,z:-1.1-row*3.2,facing:Math.PI};}
 export function meetingSeat(s,i){const l=shopLayout(s);return{x:l.officeLeft+5.9+(i?1.7:-1.7),z:-11.1,facing:i?-Math.PI/2:Math.PI/2};}
 export function itDesk(s,i){const l=shopLayout(s),cols=s.garageLevel>=7?4:3;return{x:l.officeLeft+3+(i%cols)*4.5,z:-17-Math.floor(i/cols)*3.5,facing:Math.PI};}
@@ -53,6 +57,7 @@ export const academyTeacher=s=>({x:shopLayout(s).academyLeft+2,z:-10.1,facing:Ma
 export const factoryStation=(s,i,step)=>({x:shopLayout(s).academyLeft+2.6+i*6,z:[-28.2,-24.5,-20.5][step],facing:Math.PI/2});
 export const factoryPickup=s=>({x:shopLayout(s).academyLeft+1.3,z:-16.6,facing:Math.PI/2});
 export function portals(s){const l=shopLayout(s);return[
+ {id:'front',axis:'z',line:l.front,low:-6.6,high:-5.6,offset:1.05},
  {id:'lounge',axis:'x',line:-2.7,low:1.22,high:2.48,offset:1.6},
  ...(s.garageLevel>=2?[{id:'cl',axis:'z',line:-9.2,low:12.35,high:13.85,offset:1.05}]:[]),
  ...(s.garageLevel>=4?[{id:'office',axis:'x',line:(l.right+l.officeLeft)/2,low:-4.15,high:-2.65,offset:.9},{id:'dispatch',axis:'z',line:1.6,low:l.officeLeft+.8,high:l.officeLeft+2.4,offset:1.2}]:[]),
@@ -60,11 +65,11 @@ export function portals(s){const l=shopLayout(s);return[
  ...(s.garageLevel>=8?[{id:'academy',axis:'z',line:1.6,low:l.academyLeft+.8,high:l.academyLeft+2.4,offset:1.2}]:[]),
  ...(s.garageLevel>=14?[{id:'factory',axis:'z',line:-13.5,low:l.academyLeft+14.8,high:l.academyLeft+16.4,offset:1.2}]:[])
  ];}
-export function roomOf(p,s){const l=shopLayout(s);if(s.garageLevel>=8&&p.x>l.officeRight+.4){if(p.z>1.6||p.x<l.academyLeft)return 'yard';return s.garageLevel>=14&&p.z<-13.5?'factory':'academy';}return s.garageLevel>=4&&p.x>(l.right+l.officeLeft)/2?(p.z>l.officeFront?'yard':s.garageLevel>=6&&p.z<l.itFront?'it':'office'):s.garageLevel>=2&&p.z<l.back?'cl':p.x<-2.7?'lounge':'shop';}
+export function roomOf(p,s){const l=shopLayout(s);if(p.z>l.front)return 'yard';if(s.garageLevel>=8&&p.x>l.officeRight+.4){if(p.z>1.6||p.x<l.academyLeft)return 'yard';return s.garageLevel>=14&&p.z<-13.5?'factory':'academy';}return s.garageLevel>=4&&p.x>(l.right+l.officeLeft)/2?(p.z>l.officeFront?'yard':s.garageLevel>=6&&p.z<l.itFront?'it':'office'):s.garageLevel>=2&&p.z<l.back?'cl':p.x<-2.7?'lounge':'shop';}
 export function interiorWaypoints(start,end,s){
- const source=roomOf(start,s),destination=roomOf(end,s),result=[],available=portals(s);if(source===destination)return result;
- const chains={shop:[],lounge:['lounge'],cl:['cl'],office:['office'],yard:['office','dispatch'],it:['office','it'],academy:['office','dispatch','academy'],factory:['office','dispatch','academy','factory']},a=chains[source]||[],b=chains[destination]||[];let common=0;while(common<a.length&&common<b.length&&a[common]===b[common])common++;
- const cross=(id,entering)=>{const p=available.find(v=>v.id===id);if(!p)return;const axis=p.axis,other=axis==='x'?'z':'x',dir=(['office','dispatch'].includes(id)?1:-1)*(entering?1:-1),lane=dir<0?p.low:p.high;result.push({[axis]:p.line-dir*p.offset,[other]:lane},{[axis]:p.line+dir*p.offset,[other]:lane,portal:id+(dir<0?'-out':'-in')});};
+ const l=shopLayout(s),source=roomOf(start,s),destination=roomOf(end,s),result=[],available=portals(s);if(source===destination)return result;
+ const chains={shop:[],lounge:['lounge'],cl:['cl'],office:['office'],it:['office','it'],academy:['office','dispatch','academy'],factory:['office','dispatch','academy','factory']},yardChain=p=>s.garageLevel>=4&&p.x>l.right+.3?['office','dispatch']:['lounge','front'],a=source==='yard'?yardChain(start):chains[source]||[],b=destination==='yard'?yardChain(end):chains[destination]||[];let common=0;while(common<a.length&&common<b.length&&a[common]===b[common])common++;
+ const cross=(id,entering)=>{const p=available.find(v=>v.id===id);if(!p)return;const axis=p.axis,other=axis==='x'?'z':'x',dir=(['office','dispatch','front'].includes(id)?1:-1)*(entering?1:-1),lane=dir<0?p.low:p.high;result.push({[axis]:p.line-dir*p.offset,[other]:lane},{[axis]:p.line+dir*p.offset,[other]:lane,portal:id+(dir<0?'-out':'-in')});};
  for(let i=a.length-1;i>=common;i--)cross(a[i],false);for(let i=common;i<b.length;i++)cross(b[i],true);return result;
 }
 export function shopObstacles(s){

@@ -60,11 +60,7 @@ export function buildUpgradeDecor(parent,state,l){
     for(const [i,key] of ['wipers','lights','sensors'].entries()){const prop=makeProduct(key,group,.35);prop.position.set(l.academyLeft+14.8+i*.65,1.36,-10.9);}
     for(let i=0;i<Math.min(6,state.curriculum);i++)box(group,['#80bdb7','#7ea9cc','#e6bf7d'][i%3],[.3,.035,.35],[l.academyLeft+14.8+i*.31,1.2,-10.6]);
   }
-  // The founder character welcomes visitors on a reserved terrace.
-  const boss=makePerson('#244778');boss.userData.founder=true;parent.add(boss);
-  const pos=state.garageLevel>=4?{x:l.officeRight-1.2,z:3.6}:{x:-9.3,z:l.front+1.4};
-  roundedBox(group,'#d5e5e6',[1.65,.15,1.5],[pos.x,.13,pos.z]);
-  animations.push({boss,pos});batchStatic(group);return{group,animations,boss};
+  batchStatic(group);return{group,animations};
 }
 
 function plane(){
@@ -111,7 +107,6 @@ export function buildCargoTerminals(parent,state,l){
   if(state.garageLevel>=16){
     const {x,z,width,bridgeZ}=cargoLayout(state).port;result.port={x,z,ship:ship(),crane:new THREE.Group(),water:null,containers:[]};const p=result.port;dynamic.add(p.ship,p.crane);
     p.water=box(dynamic,'#3aa2bf',[width,.14,180],[x,-.02,137],true);p.water.material=p.water.material.clone();p.water.userData.ownedMaterial=true;
-    // The 12 metre deck leaves a clear navigable opening over the shipping lane.
     box(staticGroup,'#a9bbc5',[width,.8,11],[x,12,bridgeZ]);box(staticGroup,'#526b7c',[width,.1,9],[x,12.46,bridgeZ]);
     for(const side of [-1,1])box(staticGroup,'#e4eee9',[width,1,.18],[x,13,bridgeZ+side*5.2]);
     for(let bx=x-width/2+12;bx<x+width/2;bx+=24){if(Math.abs(bx-(x+9))<17)continue;box(staticGroup,'#b4c5c9',[2,12,2],[bx,5.9,bridgeZ]);}
@@ -134,7 +129,6 @@ export function updateAdvancedDecor(decor,upgrade,simulation,time){
     const cycle=(time*.45)%1,distance=Math.sin(cycle*Math.PI)*3;
     animatePerson(visual.worker,{x:truck.x-2-distance,z:truck.z-1.6,facing:cycle<.5?Math.PI/2:-Math.PI/2,moving:true,walk:time*5,seated:false,working:false},time,.2);visual.parcel.visible=cycle<.5;
   }
-  if(upgrade?.boss){const a=upgrade.animations[0];animatePerson(a.boss,{...a.pos,facing:Math.PI/3,walk:0,moving:false,working:Math.sin(time*.5)>.6,calling:false,seated:false},time,.25);}
   for(const visual of decor?.robots||[]){const r=l?.robots[visual.index],right=simulation.economy.state.bays*5.2+.25;visual.root.position.set(18.5+(r?.progress||0)*(right-20.5),.1,-16.8-visual.index*.95);visual.root.rotation.y=Math.PI/2;visual.parcel.visible=!!r&&['transporting','unloading'].includes(r.phase);}
   if(decor?.air){const a=decor.air,t=l?.transports.air,pose=cargoPose(s,'air',t?.phase,t?.progress||0);a.plane.position.set(pose.x,pose.y,pose.z);a.plane.rotation.set(pose.pitch,pose.facing,0);a.plane.visible=true;
     const loading=t?.phase==='loading',u=loading?(Math.sin(time*1.6)+1)/2:0;a.loader.position.set(a.x+5-u*9,.2,a.z+1);a.loader.visible=loading;a.packages.forEach((mesh,i)=>mesh.visible=loading&&i<(1-t.progress)*a.packages.length);

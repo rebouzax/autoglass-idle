@@ -42,7 +42,10 @@ export class CameraController {
   zoom(factor){this.height=THREE.MathUtils.clamp(this.height*factor,10,this.maxHeight());this.resize();}
   maxHeight(){return Math.max(140,this.state?this.frameHeight(this.state)*1.6:140);}
   frameHeight(state){
-    const l=shopLayout(state),left=l.plotLeft??l.left,right=l.plotRight??(l.stage>=4?l.officeRight:l.right),back=l.plotBack??(l.stage>=2?l.clBack:l.back),depth=l.front-back,span=right-left+depth,aspect=this.canvas.clientWidth/Math.max(1,this.canvas.clientHeight);
+    const l=shopLayout(state);return this.frameArea(l.plotLeft??l.left,l.plotRight??(l.stage>=4?l.officeRight:l.right),l.plotBack??(l.stage>=2?l.clBack:l.back),l.front);
+  }
+  frameArea(left,right,back,front){
+    const span=right-left+front-back,aspect=this.canvas.clientWidth/Math.max(1,this.canvas.clientHeight);
     return Math.max(24,Math.max(span*.408+7,(span*.707+4)/aspect)*1.08);
   }
   center(state={bays:1,garageLevel:1}){

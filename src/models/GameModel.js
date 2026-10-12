@@ -62,7 +62,7 @@ const freshState=()=>({
   clRobots:0,robotMoves:0,cybersecurity:0,dataAnalytics:0,cloudPlatform:0,networkHub:0,airCargo:0,seaCargo:0,globalTrade:0,airShipments:0,seaShipments:0,digitalReleases:0,factoryProductStocks:Object.fromEntries(productKeys.filter(k=>k!=='glass').map(k=>[k,0])),
   contracts:0,completedOrders:0,onlineOrders:0,onlineEarned:0,channelEarned:{},nextOrderId:1,orders:[],stockInTransit:[],
   productStocks:Object.fromEntries(productKeys.filter(k=>k!=='glass').map(k=>[k,0])),warehouseProducts:Object.fromEntries(productKeys.filter(k=>k!=='glass').map(k=>[k,Array(WAREHOUSE_BINS).fill(0)])),frontStock:8,warehouseStocks:Array(WAREHOUSE_BINS).fill(0),
-  businessMinutes:480,shiftPresent:{},teamInvoices:[],nextTeamInvoice:1,sectorEarned:{},weatherKind:'clear',weatherRemaining:0,weatherNext:100+Math.random()*170,lifetime:0,tutorialComplete:false,tutorialStep:0
+  businessMinutes:720,shiftPresent:{},teamInvoices:[],nextTeamInvoice:1,sectorEarned:{},weatherKind:'clear',weatherRemaining:0,weatherNext:100+Math.random()*170,lifetime:0,tutorialComplete:false,tutorialStep:0
 });
 const requirements={
   1:[['productivity',2],['tools',2],['stock',1],['customers',6]],

@@ -1,4 +1,4 @@
-import {box,roundedBox,cylinder,tree} from './LowPolyAssets.js';
+import {box,roundedBox,cylinder,tree,chair} from './LowPolyAssets.js';
 import {addBrandPanel} from './CompanyDecor.js';
 import {corporateTowers} from '../models/Workforce.js';
 
@@ -20,6 +20,10 @@ export function buildCorporateCampus(parent,s,l){
       for(let j=-2;j<=2;j++)box(parent,'#9bcfd6',[2.05,2.35,.1],[tower.x+j*2.4,y+1.8,tower.z-6.7],true);
       box(parent,'#84b6c8',[.12,1.05,14],[tower.x+6.3,y+.75,tower.z]);for(const [depth,offset] of [[3,-5.5],[9,2.5]])box(parent,'#84b6c8',[.12,1.05,depth],[tower.x-6.3,y+.75,tower.z+offset]);
       box(parent,'#426f85',[13,.14,.16],[tower.x,y+1.05,tower.z+6.8]);
+      // Furnishings use the rear and side margins, clear of workstation routes.
+      roundedBox(parent,'#244f6c',[2.3,.95,.08],[tower.x,y+1.9,tower.z-6.55]);box(parent,'#86cfdb',[2.1,.75,.025],[tower.x,y+1.9,tower.z-6.49]);
+      for(const side of [-1,1]){box(parent,'#547f95',[.55,1.55,1.1],[tower.x+side*5.9,y+1.12,tower.z+4.7]);cylinder(parent,'#d9c49e',.16,.3,[tower.x+side*5.9,y+.58,tower.z-5.5],6);cylinder(parent,'#7eae86',.22,.6,[tower.x+side*5.9,y+1.03,tower.z-5.5],5);}
+      if(floor===0){roundedBox(parent,'#c7b18a',[3,.12,1.2],[tower.x,y+1.15,tower.z]);for(const side of [-1,1])for(const dx of [-.85,.85])chair(parent,tower.x+dx,tower.z+side*1.1,side<0?0:Math.PI,'#4786a0');roundedBox(parent,'#284e65',[1.5,.72,.06],[tower.x,y+1.75,tower.z-1.2]);}
     }
     box(parent,'#2385ba',[13.5,.4,14.4],[tower.x,height+.3,tower.z]);
     roundedBox(parent,'#4d839c',[1.7,height,2.3],[tower.x-7.4,height/2+.3,tower.z-3]);

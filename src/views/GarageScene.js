@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import {buildUpgradeDecor,buildCargoTerminals,updateAdvancedDecor} from './AdvancedDecor.js';
 import {activeStaff} from '../models/Workforce.js';
-import {StaffTransitScene} from './StaffTransitScene.js';
 import {WorkforceScene} from './WorkforceScene.js';
 import {cargoLayout,freightRoute} from '../models/CargoRoutes.js';
 import {PerformanceProfile} from '../services/PerformanceProfile.js';
@@ -12,7 +11,7 @@ import {addBrandPanel,buildITDepartment,buildBusinessDisplay} from './CompanyDec
 import {buildShowroom,addShopFinish,addCityDetails,addHouseDetail} from './SceneDecor.js';
 import {PRODUCTS,productKeys} from '../models/Products.js';
 import {CameraController} from '../services/CameraController.js';
-import {bayX,workerSeat,drawerX,loungeSpot,deskX,getAddresses,shopLayout,drawerZ,cityRoads,officeDesk,meetingSeat,productPoint,packingBench,dispatchBay,driveway,docks,scanStation,collectorHome,employeeHome,parkingGate,onCityRoad,logisticsRoad} from '../models/ShopLayout.js';
+import {bayX,workerSeat,drawerX,loungeSpot,deskX,getAddresses,shopLayout,drawerZ,cityRoads,officeDesk,meetingSeat,productPoint,packingBench,dispatchBay,driveway,docks,scanStation,collectorHome,onCityRoad,logisticsAccess,cityExtent} from '../models/ShopLayout.js';
 import {box,roundedBox,cylinder,material,tree,shopSign,makeCar,makeMotorcycle,makeProduct,makePerson,animatePerson,batchStatic,emojiBubble,chair,makeTruck} from './LowPolyAssets.js';
 
 export class GarageScene {
@@ -32,7 +31,7 @@ export class GarageScene {
   removeStructure(group){if(!group)return;group.traverse(o=>{if(o.userData.ownedMaterial||o.userData.batched&&o.material?.map){o.material.map?.dispose();o.material.dispose();}if(o.isSprite||o.userData.sign){o.material.map?.dispose();o.material.dispose();o.geometry?.dispose();}else if(o.userData.batched||['ConeGeometry','IcosahedronGeometry'].includes(o.geometry?.type))o.geometry.dispose();});group.removeFromParent();}
   buildCity(state){
     if(this.city){this.city.traverse(o=>o.geometry?.dispose());this.city.removeFromParent();}
-    const city=new THREE.Group();this.city=city;this.world.add(city);const l=shopLayout(state),roads=cityRoads(state),extent=Math.max(state.garageLevel>=6?230+(state.garageLevel-6)*20:116+state.garageLevel*12,l.plotRight*2+44,Math.abs(l.plotBack)*2+300);
+    const city=new THREE.Group();this.city=city;this.world.add(city);const l=shopLayout(state),roads=cityRoads(state),access=logisticsAccess(state),extent=cityExtent(state);
     box(city,'#72b881',[extent,.22,extent],[0,-.21,-2]).castShadow=false;box(city,'#c9b698',[extent,1,extent],[0,-.83,-2]);
     for(const z of roads.zs){
       box(city,'#dce6df',[extent,.12,state.garageLevel>=6?12:9],[0,-.01,z]);box(city,'#455d6d',[extent,.1,state.garageLevel>=6?9:6.4],[0,.06,z]);for(let x=-extent/2+2;x<extent/2;x+=5)if(!roads.xs.some(v=>Math.abs(x-v)<5))box(city,'#f1efcf',[2.4,.015,.11],[x,.12,z]);
@@ -48,16 +47,42 @@ export class GarageScene {
     if(state.garageLevel>=6)for(let x=-extent/2+12;x<extent/2-10;x+=18)for(const z of [-extent/2+13,extent/2-13])buildings.push([x,z,8,10+(Math.abs(x)%7),'#a7cbdc']);
     if(state.garageLevel>=6)for(let x=-extent/2+18;x<extent/2-15;x+=36)for(let z=-extent/2+35;z<35;z+=36)buildings.push([x,z,6.4,4+Math.min(10,state.garageLevel*.6),['#bfd6b3','#dfc297','#a5cad6'][Math.abs(Math.floor(x/27)+Math.floor(z/27))%3]]);
     if(state.garageLevel>=4)for(let x=-58;x<l.plotRight+28;x+=15){buildings.push([x,26,5.8,Math.min(7,3+state.garageLevel*.32),['#a3cfd5','#e8c68f','#b4c4de'][Math.abs(Math.floor(x/15))%3]]);if(state.garageLevel>=9)buildings.push([x,l.plotBack-17,7.5,12+(state.garageLevel-9)*1.7,'#8fbdd2']);}
-    const plotFront=driveway(state).front,occupied=(x,z,r=2)=>state.garageLevel>=2&&x>-63-r&&x<-12+r&&Math.abs(z-logisticsRoad(state))<5+r||(x+r>l.plotLeft&&x-r<l.plotRight&&z+r>l.plotBack&&z-r<plotFront)||(state.garageLevel>=15&&x>-84-r&&x<-46+r&&z>l.plotBack-5-r&&z<5+r)||(z<l.plotBack-10+r&&z>l.plotBack-150-r&&x>employeeHome(l,0).house.x-6-r&&x<l.employeeParking.right+8+r)||(state.garageLevel>=16&&z>43-r)||(state.garageLevel>=15&&(Math.abs(z-32)<r+3||Math.abs(x+46)<r+3));
+    const plotFront=driveway(state).front,occupied=(x,z,r=2)=>state.garageLevel>=2&&Math.abs(x-access.entryX)<3.4+r&&z+r>access.road&&z-r<l.plotBack+2||(x+r>l.plotLeft&&x-r<l.plotRight&&z+r>l.plotBack&&z-r<plotFront)||(state.garageLevel>=15&&x>-84-r&&x<-46+r&&z>l.plotBack-5-r&&z<5+r)||(state.garageLevel>=16&&z>43-r)||(state.garageLevel>=15&&(Math.abs(z-32)<r+3||Math.abs(x+46)<r+3));
     const built=[];for(const args of buildings){const [x,z,w]=args;if(occupied(x,z,w/2+1)||[...roads.xs,...(state.garageLevel>=6?[-extent/2+25,extent/2-25]:[])].some(v=>Math.abs(x-v)<w/2+7)||roads.zs.some(v=>Math.abs(z-v)<w/2+5))continue;const height=state.garageLevel===1?Math.min(args[3],4.2):Math.min(22,args[3]*(.55+state.garageLevel*.07));this.house(city,args[0],args[1],args[2],height,args[4]);built.push(args);}addCityDetails(city,state,l,roads,extent,built);
     for(const [x,z] of [[-16,2],[-9,17],[15,20],[-30,-17],[-31,18],[30,18],[31,-17],[-46,-22],[44,-18],[-12,-30],[12,-30],[28,-4],[-30,-4]])if(!occupied(x,z,1.5)&&!onCityRoad(state,x,z,1.7))tree(city,x,z,1.1);
-    if(state.garageLevel<2){box(city,'#dfd9c3',[7,.14,7],[-18,.03,-17]);cylinder(city,'#edeee3',1.2,.24,[-18,.25,-17],12);cylinder(city,'#81cdd9',1,.1,[-18,.39,-17],12);tree(city,-17,-22,1);}
+    if(state.garageLevel<2){box(city,'#dfd9c3',[5,.14,5],[-20,.03,1]);cylinder(city,'#edeee3',1,.24,[-20,.25,1],12);cylinder(city,'#81cdd9',.85,.1,[-20,.39,1],12);tree(city,-21.3,-.5,.8);}
     for(const x of [-16,16,-28,28])for(const z of [5,-19,33]){if(occupied(x,z,.4)||onCityRoad(state,x,z,.7))continue;cylinder(city,'#c7d6db',.065,3.8,[x,1.9,z],6);box(city,'#d7e2e2',[.65,.11,.28],[x+.2,3.83,z]);}
     const plotWidth=l.plotRight-l.plotLeft,depth=plotFront-l.plotBack;
     box(city,'#9caeb8',[plotWidth,.14,depth],[(l.plotLeft+l.plotRight)/2,.03,(l.plotBack+plotFront)/2]);
     box(city,'#e4e8de',[plotWidth,.1,1.2],[(l.plotLeft+l.plotRight)/2,.13,plotFront-.5]);
+    if(state.garageLevel>=7){
+      const left=l.officeLeft+1.2,right=(state.garageLevel>=14?l.factoryRight:state.garageLevel>=8?l.academyRight:l.officeRight)-1.2;
+      const front=-61,back=l.plotBack+3,width=right-left,depth=front-back;
+      if(depth>9){
+        const x=(left+right)/2,z=(front+back)/2;box(city,'#90ba91',[width,.035,depth],[x,.17,z]);
+        box(city,'#dfe3cb',[2.2,.04,depth],[x,.21,z]);box(city,'#dfe3cb',[width,.04,2.2],[x,.21,z]);
+        if(width>30&&depth>24){
+          cylinder(city,'#dce5d6',2.7,.13,[x+9,.27,z+6],16);cylinder(city,'#749dac',2.25,.2,[x+9,.43,z+6],16);cylinder(city,'#72cbda',2,.08,[x+9,.57,z+6],16);
+          cylinder(city,'#d2e7df',.25,.55,[x+9,.86,z+6],8);
+          const px=x-9,pz=z-7;box(city,'#e3dac2',[9,.06,6],[px,.23,pz]);
+          for(const dx of [-3.9,3.9])for(const dz of [-2.4,2.4])box(city,'#637f8b',[.14,2.7,.14],[px+dx,1.62,pz+dz]);
+          for(let dx=-4;dx<=4;dx+=.65)box(city,'#d3bd8d',[.23,.12,5.4],[px+dx,3,pz]);
+          box(city,'#c5ae81',[4,.12,1.2],[px,1.11,pz]);for(const side of [-1,1])for(const dx of [-1.25,1.25])chair(city,px+dx,pz+side*1.15,side>0?Math.PI:0,'#547f92');
+        }
+        for(const px of [left+6,right-6])for(let pz=front-5;pz>back+3;pz-=12){
+          box(city,'#e4dfc8',[8,.05,7],[px,.21,pz]);for(const dx of [-2.6,2.6]){tree(city,px+dx,pz+2,.8);box(city,'#52798b',[1.9,.1,.5],[px+dx,.74,pz-.8]);for(const side of [-.7,.7])box(city,'#627d86',[.07,.55,.35],[px+dx+side,.45,pz-.8]);}
+          cylinder(city,'#d3bd92',.62,.12,[px,1.03,pz-.9],10);for(const side of [-1,1])chair(city,px+side*1.1,pz-.9,side>0?-Math.PI/2:Math.PI/2,'#477f94');
+        }
+        for(const pz of [front-2,back+2])for(const px of [left+1,right-1]){cylinder(city,'#72918c',.045,3.3,[px,1.86,pz],6);box(city,'#f4e9c5',[.42,.1,.3],[px,3.5,pz]);}
+      }
+    }
     for(const x of [l.plotLeft,l.plotRight]){box(city,'#f1d389',[.09,.025,depth-1],[x,.12,(l.plotBack+plotFront-1)/2]);}
-    if(state.garageLevel>=2){const z=logisticsRoad(state);box(city,'#4d6878',[49,.06,7.8],[-35.5,.13,z]);for(let x=-58;x<-14;x+=7)box(city,'#e8d372',[2.6,.025,.09],[x,.17,z]);for(let z=l.clBack+1;z<-11;z+=1.5)box(city,'#e8d372',[.09,.025,.75],[-20.6,.12,z]);}
+    if(state.garageLevel>=2){
+      // A short apron joins the public street to the existing company yard.
+      const back=access.road+(state.garageLevel>=6?4.5:3.2),front=l.plotBack+2;
+      box(city,'#9caeb8',[6.8,.055,front-back],[access.entryX,.06,(back+front)/2]);
+      for(let z=l.clBack+1;z<-11;z+=1.5)box(city,'#e8d372',[.09,.025,.75],[-20.6,.12,z]);
+    }
     // Visitor spaces stay beside the lounge; service bays keep their own entrance.
     const parkingZ=l.front+1.8;
     for(let i=0;i<(state.garageLevel===1?2:3);i++){
@@ -94,7 +119,7 @@ export class GarageScene {
     for(const sx of [-width/2,width/2])box(frame,'#1680c7',[.1,2.15,.16],[sx,1.075,0]);box(frame,'#1680c7',[width+.1,.12,.16],[0,2.15,0]);
     const panels=[];for(const direction of [-1,1]){const panel=new THREE.Group();panel.position.x=direction*width/4;frame.add(panel);box(panel,'#9fcedd',[width/2-.07,1.95,.055],[0,1.05,0],true);box(panel,'#edf6f9',[.035,.9,.06],[direction*width/4*-1+.08,1.05,.06]);panels.push(panel);}this.doors.push({id,x,z,width,panels,open:0});
   }
-  buildGarage(state){this.staffTransit?.dispose();this.staffTransit=new StaffTransitScene(this.world,state,shopLayout(state));
+  buildGarage(state){
     this.workforceScene?.dispose();this.removeStructure(this.garage);const garage=new THREE.Group();this.garage=garage;this.world.add(garage);this.roof=new THREE.Group();garage.add(this.roof);
     const l=shopLayout(state),width=l.right-l.left,center=(l.left+l.right)/2,depth=l.front-l.back,mid=(l.front+l.back)/2;this.layout=l;this.frontPanes=[];this.productShelves={};this.readyPackages=[];this.warehouseBoxes=[];this.doors=[];this.displays=[];this.campusDecor=buildCampus(garage,this.roof,state,l,(...args)=>this.doorway(...args));this.fulfillment=buildFulfillment(garage,state,l);this.workforceScene=new WorkforceScene(garage,state,l);
     box(garage,'#f6f2e8',[width,.17,depth],[center,.2,mid]);
@@ -144,7 +169,7 @@ export class GarageScene {
     this.roof.visible=this.inGame?this.roofVisible:true;
   }
   batchGarage(){
-    const protectedNodes=new Set([this.roof,this.advancedDecor.dynamic,this.upgradeDecor.boss,this.workforceScene.group,...this.frontPanes,...this.readyPackages,...Object.values(this.productShelves).flat(),...this.warehouseBoxes.flat(),...this.doors.flatMap(door=>door.panels),...this.displays,...this.campusDecor.machines.flatMap(machine=>[machine.glass,machine.cutter,machine.scanner,machine.heat]),...this.campusDecor.panes,...this.fulfillment.parcels.map(parcel=>parcel.mesh),...this.fulfillment.arms]);
+    const protectedNodes=new Set([this.roof,this.advancedDecor.dynamic,this.workforceScene.group,...this.frontPanes,...this.readyPackages,...Object.values(this.productShelves).flat(),...this.warehouseBoxes.flat(),...this.doors.flatMap(door=>door.panels),...this.displays,...this.campusDecor.machines.flatMap(machine=>[machine.glass,machine.cutter,machine.scanner,machine.heat]),...this.campusDecor.panes,...this.fulfillment.parcels.map(parcel=>parcel.mesh),...this.fulfillment.arms]);
     const structure=new THREE.Group();this.garage.add(structure);
     for(const child of [...this.garage.children]){
       if(child===structure)continue;let movable=true;
@@ -207,7 +232,7 @@ export class GarageScene {
   }
   setGrowth(state){
     const signature=[state.garageLevel,state.bays,state.workers,state.logisticsWorkers,state.cashiers,state.storeExpansion,state.warehouseExpansion,state.stockRacks,state.tools,state.officeChairs,state.officeComputers,state.businessArea,state.packingLevel,state.productRange,state.dispatchLevel,state.productivity,state.itWorkers,state.itComputers,state.servers,state.ecommerce,state.branches,state.fleetContracts,state.distribution,state.insurance,state.marketplace,state.automation,state.international,state.manufacturing,state.holding,state.trainingLevel,state.curriculum,state.productionLines,state.qualityControl,state.wmsLevel,state.salesWorkers,state.factoryWorkers,state.clRobots,state.cybersecurity,state.dataAnalytics,state.cloudPlatform,state.networkHub,state.airCargo,state.seaCargo,state.globalTrade].join(':');
-    if(signature!==this.signature){const footprint=[state.garageLevel,state.bays,state.storeExpansion,state.warehouseExpansion].join(':'),stageChanged=this.footprint!==footprint;this.footprint=footprint;this.signature=signature;this.stage=state.garageLevel;if(stageChanged)this.buildCity(state);this.buildGarage(state);if(this.inGame&&stageChanged)this.controls.center(state);const l=this.layout,span=Math.max(state.garageLevel>=16?170:state.garageLevel>=15?145:42,(l.plotRight-l.plotLeft)*.7,Math.abs(l.plotBack)*.75),cx=(l.plotLeft+l.plotRight)/2,cz=(l.plotBack+l.front)/2;this.sun.position.set(cx-24,52,cz+25);this.sun.target.position.set(cx,0,cz);if(!this.sun.target.parent)this.scene.add(this.sun.target);Object.assign(this.sun.shadow.camera,{left:-span,right:span,top:span,bottom:-span,far:180});this.sun.shadow.camera.updateProjectionMatrix();}
+    if(signature!==this.signature){const footprint=[state.garageLevel,state.bays,state.storeExpansion,state.warehouseExpansion,state.workers,state.cashiers,state.logisticsWorkers,state.salesWorkers,state.itWorkers,state.factoryWorkers,state.officeComputers,state.itComputers,state.productionLines].join(':'),stageChanged=this.footprint!==footprint;this.footprint=footprint;this.signature=signature;this.stage=state.garageLevel;if(stageChanged)this.buildCity(state);this.buildGarage(state);if(this.inGame&&stageChanged)this.controls.center(state);const l=this.layout,span=Math.max(state.garageLevel>=16?170:state.garageLevel>=15?145:42,(l.plotRight-l.plotLeft)*.7,Math.abs(l.plotBack)*.75),cx=(l.plotLeft+l.plotRight)/2,cz=(l.plotBack+l.front)/2;this.sun.position.set(cx-24,52,cz+25);this.sun.target.position.set(cx,0,cz);if(!this.sun.target.parent)this.scene.add(this.sun.target);Object.assign(this.sun.shadow.camera,{left:-span,right:span,top:span,bottom:-span,far:180});this.sun.shadow.camera.updateProjectionMatrix();}
     for(let i=0;i<this.frontPanes.length;i++)this.frontPanes[i].visible=i<state.frontStock;
     for(const key of Object.keys(this.productShelves))for(let i=0;i<this.productShelves[key].length;i++)this.productShelves[key][i].visible=i*4<(state.productStocks[key]||0);
     for(let i=0;i<this.readyPackages.length;i++)this.readyPackages[i].visible=i<state.orders.filter(o=>o.phase==='counterReady').length;
@@ -243,7 +268,7 @@ export class GarageScene {
     this.time+=dt;this.controls.update(dt);
     if(!this.inGame){this.menuCar.rotation.y=-.45+Math.sin(this.time*.11)*.42;this.menuCar.position.y=.26+Math.sin(this.time*.65)*.018;this.renderer.render(this.scene,this.camera);return;}
     this.sun.target.position.set(this.controls.target.x,0,this.controls.target.z);this.sun.position.set(this.controls.target.x-18,34,this.controls.target.z+20);const shadowSpan=Math.max(24,Math.min(180,this.controls.height*.75));if(Math.abs(this.sun.shadow.camera.right-shadowSpan)>1){Object.assign(this.sun.shadow.camera,{left:-shadowSpan,right:shadowSpan,top:shadowSpan,bottom:-shadowSpan});this.sun.shadow.camera.updateProjectionMatrix();}
-    this.workforceScene?.update(simulation.time,simulation.staff);this.staffTransit?.update(simulation.staff,simulation.clock);this.ambient.intensity=.16+simulation.clock.light*.99;this.ambient.color.set(simulation.clock.light<.35?'#7296d4':'#fffef0');this.ambient.groundColor.set(simulation.clock.light<.35?'#253e62':'#97b2bc');updateAdvancedDecor(this.advancedDecor,this.upgradeDecor,simulation,simulation.time);
+    this.workforceScene?.update(simulation.time,simulation.staff);this.ambient.intensity=.16+simulation.clock.light*.99;this.ambient.color.set(simulation.clock.light<.35?'#7296d4':'#fffef0');this.ambient.groundColor.set(simulation.clock.light<.35?'#253e62':'#97b2bc');updateAdvancedDecor(this.advancedDecor,this.upgradeDecor,simulation,simulation.time);
     while(this.traffic.length<simulation.city.cars.length){const mesh=makeCar(['#edb859','#74baca','#da8170','#e8efea'][this.traffic.length%4]);mesh.userData.crack.visible=false;this.world.add(mesh);this.traffic.push(mesh);}
     while(this.pedestrians.length<simulation.city.pedestrians.length){const mesh=makePerson(['#6c96c3','#85b386','#e1b75e'][this.pedestrians.length%3]);mesh.scale.setScalar(.88);this.world.add(mesh);this.pedestrians.push(mesh);}
     this.traffic.forEach((mesh,i)=>{mesh.visible=!!simulation.city.cars[i];if(mesh.visible)this.updateCar(mesh,simulation.city.cars[i],active?dt:0);});this.pedestrians.forEach((mesh,i)=>{mesh.visible=!!simulation.city.pedestrians[i];if(mesh.visible)animatePerson(mesh,simulation.city.pedestrians[i],simulation.time,.006);});

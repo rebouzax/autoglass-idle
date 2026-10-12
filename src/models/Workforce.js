@@ -25,20 +25,36 @@ export function corporateTowers(s,l){
   return [{role:'salesWorker',x:l.officeLeft+8,z:-46.6,floors},{role:'itWorker',x:l.officeRight-8,z:-46.6,floors}];
 }
 
-// Reserved stations connect to separate arrival and departure aisles.
+// Departments fit the hired team, instead of reserving empty halls for future hires.
 export function workforceLayout(s,primaryRight){
-  const columns=s.garageLevel>=7?6:3,spacing=s.garageLevel>=7?3.6:3,zoneWidth=columns*spacing+3.2,c=levelConfig(s);
-  const capacities=STAFF_ROLES.map(role=>Math.max(0,c[role.capacity]-({worker:s.bays,cashier:3,logistics:c.activeCollectors,salesWorker:1,itWorker:Math.min(12,c.maxDevelopers),factoryWorker:1}[role.key]||0)));
-  const rowHeight=row=>Math.max(1,...row.map(count=>Math.ceil(count/columns)))*5.2+19;
-  // Shop, logistics and commercial teams share the first row; finance, IT and factory the second.
-  const floors=s.garageLevel>=7?Math.min(6,2+Math.floor((s.garageLevel-7)/2)):0;capacities[3]=Math.max(0,capacities[3]-floors*9);capacities[4]=Math.max(0,capacities[4]-floors*9);const top=rowHeight([capacities[0],capacities[2],capacities[3]]),bottom=rowHeight([capacities[1],capacities[4],capacities[5]]);
-  return {spacing,left:primaryRight+(s.garageLevel>=7?8:36),right:primaryRight+(s.garageLevel>=7?8:36)+zoneWidth*3,front:1.6,back:1.6-top-bottom,width:zoneWidth*3,columns,zoneWidth,top,bottom};
+  const floors=s.garageLevel>=7?Math.min(6,2+Math.floor((s.garageLevel-7)/2)):0;
+  const groundCount=role=>Math.max(0,supportStaff(s,role)-(['salesWorker','itWorker'].includes(role)?floors*9:0));
+  const maxCount=Math.max(1,...STAFF_ROLES.map(role=>groundCount(role.key))),columns=Math.min(s.garageLevel>=7?8:4,Math.max(2,Math.ceil(Math.sqrt(maxCount))));
+  const amenities=staffTotal(s)>50,header=amenities?15:3.8,spacing=3.4,rowSpacing=4.2,zoneWidth=columns*spacing+3.2,left=primaryRight+5,front=1.6;
+  const order=[['worker','cashier'],['logistics','itWorker'],['salesWorker','factoryWorker']],zones=[];
+  let occupiedColumns=0;
+  for(const group of order){
+    if(!group.some(role=>supportStaff(s,role)>(['salesWorker','itWorker'].includes(role)?floors*9:0)))continue;
+    const column=occupiedColumns++;
+    let cursor=front;
+    for(const role of group){
+      const count=groundCount(role);
+      if(!count)continue;
+      const depth=header+2+Math.ceil(count/columns)*rowSpacing;
+      zones.push({role,column,count,left:left+column*zoneWidth,right:left+(column+1)*zoneWidth,front:cursor,back:cursor-depth,depth,width:zoneWidth});cursor-=depth+2;
+    }
+  }
+  if(!zones.length&&s.garageLevel<7)return null;
+  const width=Math.max(1,occupiedColumns*zoneWidth),back=Math.min(front-12,...zones.map(zone=>zone.back)),top=Math.max(12,...zones.filter(z=>['worker','logistics','salesWorker'].includes(z.role)).map(z=>z.depth));
+  return {spacing,rowSpacing,header,amenities,left,right:left+width,front,back,width,columns,zoneWidth,top,bottom:Math.max(0,front-back-top),zones};
 }
 export function workforceCells(s,layout){
-  const zones={worker:[0,0],logistics:[1,0],salesWorker:[2,0],cashier:[0,1],itWorker:[1,1],factoryWorker:[2,1]},cells=[];
+  const cells=[];
   for(const role of STAFF_ROLES){
-    const [column,row]=zones[role.key],startZ=layout.front-(row?layout.top:0)-15;
-    for(let i=0;i<supportStaff(s,role.key);i++){const towerCount=s.garageLevel>=7&&['salesWorker','itWorker'].includes(role.key)?Math.min(6,2+Math.floor((s.garageLevel-7)/2))*9:0,j=i>=towerCount?i-towerCount:i;cells.push({role:role.key,color:role.color,index:i,y:0,x:layout.left+2.5+column*layout.zoneWidth+(j%layout.columns)*(layout.spacing||2.4),z:startZ-Math.floor(j/layout.columns)*5.2,aisleX:layout.left+.7+column*layout.zoneWidth});}
+    const zone=layout.zones.find(z=>z.role===role.key),towerCount=s.garageLevel>=7&&['salesWorker','itWorker'].includes(role.key)?Math.min(6,2+Math.floor((s.garageLevel-7)/2))*9:0;
+    for(let i=0;i<supportStaff(s,role.key);i++){
+      const j=Math.max(0,i-towerCount);cells.push({role:role.key,color:role.color,index:i,y:0,x:(zone?.left??layout.left)+2.5+(j%layout.columns)*layout.spacing,z:(zone?.front??layout.front)-layout.header-Math.floor(j/layout.columns)*layout.rowSpacing,aisleX:(zone?.left??layout.left)+.7,zone});
+    }
   }
   return cells;
 }

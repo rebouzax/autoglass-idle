@@ -54,13 +54,17 @@ export function vehicleSpeedLimit(actor, vehicles, requested = actor.targetSpeed
   }
   return speed;
 }
-function pedestrianCollisionBlocks(before, after, vehicle, radius = .34) {
+const rectangleClearance=(p,box)=>p.x>=box.minX&&p.x<=box.maxX&&p.z>=box.minZ&&p.z<=box.maxZ
+ ?-Math.min(p.x-box.minX,box.maxX-p.x,p.z-box.minZ,box.maxZ-p.z)
+ :Math.hypot(p.x-Math.max(box.minX,Math.min(box.maxX,p.x)),p.z-Math.max(box.minZ,Math.min(box.maxZ,p.z)));
+export function vehiclePedestrianBlocks(before,after,person,radius=.34){
+ const next=vehicleBounds(after);if(!touchesRectangle(person.x,person.z,radius,next))return false;const previous=vehicleBounds(before);
+ return !touchesRectangle(person.x,person.z,radius,previous)||rectangleClearance(person,next)<=rectangleClearance(person,previous)+.00001;
+}
+export function pedestrianCollisionBlocks(before, after, vehicle, radius = .34) {
   const box = vehicleBounds(vehicle);
   if (!touchesRectangle(after.x, after.z, radius, box)) return false;
-  const clearance = p => p.x >= box.minX && p.x <= box.maxX && p.z >= box.minZ && p.z <= box.maxZ
-    ? -Math.min(p.x - box.minX, box.maxX - p.x, p.z - box.minZ, box.maxZ - p.z)
-    : Math.hypot(p.x - Math.max(box.minX, Math.min(box.maxX, p.x)), p.z - Math.max(box.minZ, Math.min(box.maxZ, p.z)));
-  return !touchesRectangle(before.x, before.z, radius, box) || clearance(after) <= clearance(before) + .00001;
+  return !touchesRectangle(before.x, before.z, radius, box) || rectangleClearance(after,box) <= rectangleClearance(before,box) + .00001;
 }
 export const green = (axis, time) => { const phase = time % 26; return axis === 'x' ? phase < 9 : phase >= 13 && phase < 22; };
 export function signalSpeedLimit(actor, time, roads, requested = actor.targetSpeed ?? 3.2) {

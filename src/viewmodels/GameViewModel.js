@@ -32,8 +32,6 @@ export class GameViewModel {
     if(name==='tutorial-interact'){this.guide?.interact();return;}
     if(this.guide&&!['tutorial-next','tutorial-prev','tutorial-skip','tutorial-done','home'].includes(name))return;
     if(name==='play')this.play();
-    else if(name==='night-speed'&&!this.simulation.clock.day){this.simulation.clock.speed=this.simulation.clock.speed===1?2:1;this.view.hudTimer=1;}
-    else if(name==='night-skip'&&!this.simulation.clock.day){this.simulation.clock.dawn();this.simulation.staff.startDay(this.simulation);this.model.save();this.view.hudTimer=1;}
     else if(name==='pause'&&!this.view.tutorialActive){this.model.paused=!this.model.paused;this.view.render(this.model.state);this.music.activate(!this.model.paused);}
     else if(name==='garage'||UPGRADES[name]){const quantity=staffRole(name)?this.view.hireBatch||1:1,before=this.model.value(name);if(this.model.buy(name,quantity))this.view.showUpgrade(name,this.model.value(name)-before);}
     else if(name==='home'){if(this.guide){this.guide=null;this.view.tutorialActive=false;this.view.root.classList.remove('is-touring');this.view.q('.tutorial-backdrop').classList.add('hidden');this.view.scene.setGrowth(this.model.state);}this.model.paused=true;this.model.save();this.view.showMenu();this.music.activate(false);}

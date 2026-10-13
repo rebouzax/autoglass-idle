@@ -1,9 +1,18 @@
 import {PRODUCTS,availableProducts,productKeys} from './Products.js';
 import {MAX_LEVEL,WAREHOUSE_BINS,levelConfig,LEVELS} from './Progression.js';
 import {STAFF_ROLES,staffRole,staffTotal,staffCapacity,staffEfficiency} from './Workforce.js';
+import {MAXPAR_LEVELS,maxparConfig,maxparLevelLimit,maxparRequirements,maxparCollectorLimit} from './MaxparProgression.js';
 const SAVE_KEY='autoglass-idle-save-v1';
 const SETTINGS_KEY='autoglass-idle-settings';
 export const UPGRADES={
+  maxpar:{field:'maxparLevel',title:'Abrir / ampliar Maxpar',icon:'assistance',group:'maxpar',minStage:7,max:8,base:80000,factor:3.8},
+  maxparWorker:{field:'maxparWorkers',title:'Equipe Maxpar',icon:'worker',group:'maxpar',minStage:7,max:20,base:11000,factor:1.3,initial:2},
+  maxparTools:{field:'maxparTools',title:'Ferramentas de assistência',icon:'tools',group:'maxpar',minStage:7,max:8,base:14000,factor:3.2},
+  maxparSpeed:{field:'maxparSpeed',title:'Produtividade Maxpar',icon:'wrench',group:'maxpar',minStage:7,max:8,base:18000,factor:3.1},
+  maxparComfort:{field:'maxparComfort',title:'Recepção e conforto',icon:'chair',group:'maxpar',minStage:7,max:4,base:15000,factor:4},
+  maxparContracts:{field:'maxparContracts',title:'Contratos de assistência',icon:'shield',group:'maxpar',minStage:7,max:6,base:65000,factor:3.9},
+  maxparCollector:{field:'maxparCollectors',title:'Coletores do CL Maxpar',icon:'scanner',group:'maxpar',minStage:7,max:6,base:16000,factor:2.5,initial:1},
+  maxparWarehouse:{field:'maxparWarehouse',title:'Ampliar CL Maxpar',icon:'warehouse',group:'maxpar',minStage:7,max:6,base:24000,factor:3.5},
   productivity:{field:'productivity',title:'Produtividade',icon:'wrench',group:'shop',minStage:1,max:15,base:85,factor:1.6},
   tools:{field:'tools',title:'Ferramentas',icon:'tools',group:'shop',minStage:1,max:8,base:65,factor:1.85},
   stock:{field:'stockRacks',title:'Expositores',icon:'stock',group:'shop',minStage:1,max:8,base:110,factor:1.8},
@@ -54,6 +63,7 @@ export const LIMITS=Object.fromEntries(Object.entries(UPGRADES).map(([kind,u])=>
 const networkFields=['networkHub','globalTrade','airCargo','seaCargo','branches','fleetContracts','distribution','insurance','marketplace','automation','international','manufacturing','holding'];
 const channelFields={branches:'branches',fleet:'fleetContracts',distribution:'distribution',insurance:'insurance',marketplace:'marketplace',automation:'automation',international:'international',manufacturing:'manufacturing',holding:'holding',online:'ecommerce',air:'airCargo',maritime:'seaCargo'};
 const freshState=()=>({
+  maxparLevel:0,maxparWorkers:0,maxparTools:0,maxparSpeed:0,maxparComfort:0,maxparContracts:0,maxparServices:0,maxparEarned:0,maxparAppointments:0,maxparCollectors:0,maxparWarehouse:0,maxparDeliveries:0,maxparReceived:0,maxparPendingPayments:0,maxparPendingServices:0,maxparMaterials:Object.fromEntries(productKeys.map(k=>[k,0])),maxparInTransit:[],maxparMovements:[],
   wmsStationChecks:0,staffBreaks:0,networkSyncs:0,salesMeetings:0,qualityInspections:0,cash:0,totalEarned:0,customers:0,workers:1,bays:1,garageLevel:1,productivity:0,tools:0,stockRacks:0,cashiers:1,
   logisticsWorkers:0,logisticsProductivity:0,storeExpansion:0,warehouseExpansion:0,officeChairs:0,officeComputers:0,businessArea:0,salesTraining:0,dispatchLevel:0,productRange:0,packingLevel:0,
   itWorkers:0,itComputers:0,ecommerce:0,servers:0,onlineMarketing:0,salesWorkers:0,factoryWorkers:0,
@@ -96,6 +106,9 @@ export class GameModel{
     s.productionLines=s.garageLevel>=14?Math.max(1,Math.min(3,s.productionLines)):0;
     s.warehouseExpansion=Math.max(c.minWarehouse,s.warehouseExpansion);
     s.clRobots=s.garageLevel>=10?Math.max(1,Math.min(6,s.clRobots)):0;
+    s.maxparLevel=s.garageLevel>=7?Math.min(maxparLevelLimit(s),s.maxparLevel):0;
+    s.maxparWorkers=s.maxparLevel?Math.max(2,Math.min(maxparConfig(s).workers,s.maxparWorkers)):0;
+    s.maxparCollectors=s.maxparLevel?Math.max(1,Math.min(maxparCollectorLimit(s),s.maxparCollectors)):0;
   }
   load(){
     try{
@@ -103,6 +116,9 @@ export class GameModel{
       for(const field of Object.keys(this.state))if(typeof this.state[field]==='number'&&Number.isFinite(saved[field])&&saved[field]>=0)this.state[field]=saved[field];
       if(this.state.bays>1||this.state.workers>1)this.state.garageLevel=Math.max(2,this.state.garageLevel);
       const s=this.state;s.garageLevel=Math.min(MAX_LEVEL,Math.max(1,Math.floor(s.garageLevel)));
+      for(const key of productKeys)s.maxparMaterials[key]=Math.min(24,Math.floor(nonnegative(saved.maxparMaterials?.[key])));
+      if(Array.isArray(saved.maxparInTransit))s.maxparInTransit=saved.maxparInTransit.filter(p=>PRODUCTS[p.product]&&Number.isFinite(p.units)&&p.units>0).slice(0,8).map(p=>({product:p.product,units:Math.min(4,Math.floor(p.units))}));
+      if(Array.isArray(saved.maxparMovements))s.maxparMovements=saved.maxparMovements.filter(p=>PRODUCTS[p.product]&&Number.isFinite(p.units)&&p.units>0).slice(-30).map(p=>({...p,kind:String(p.kind).slice(0,20),address:String(p.address).slice(0,20)}));
       for(const u of Object.values(UPGRADES))s[u.field]=Math.min(u.max,Math.max(0,Math.floor(s[u.field])));
       if(saved.salesWorkers===undefined&&s.garageLevel>=4)s.salesWorkers=1+s.officeComputers;
       if(saved.factoryWorkers===undefined&&s.garageLevel>=14)s.factoryWorkers=Math.max(1,s.productionLines);
@@ -154,8 +170,8 @@ export class GameModel{
   saleValue(product){const s=this.state;return Math.round(PRODUCTS[product].price*(1+s.tools*.12+s.productRange*.1));}
   orderCapacity(){return 8+Math.min(4,Math.floor(this.state.garageLevel/4))+Math.min(3,Math.floor(this.state.servers/2));}
   trainingBonus(){const s=this.state;return 1+Math.min(.5,Math.log1p(s.certifications)*.045+s.curriculum*.025);}
-  staffTotal(){return staffTotal(this.state);}
-  staffCapacity(){return staffCapacity(this.state);}
+  staffTotal(){return staffTotal(this.state)+this.state.maxparWorkers+this.state.maxparCollectors+(this.state.maxparLevel?1:0);}
+  staffCapacity(){return staffCapacity(this.state)+(this.state.maxparLevel?maxparConfig(this.state).workers+maxparCollectorLimit(this.state)+1:0);}
   teamEfficiency(key){return staffEfficiency(this.state,key);}
   factoryStock(product='glass'){return product==='glass'?this.state.factoryStock:this.state.factoryProductStocks[product]||0;}
   factoryTotal(){return productKeys.reduce((n,key)=>n+this.factoryStock(key),0);}
@@ -182,6 +198,7 @@ export class GameModel{
   hiringCount(kind,quantity=1){return staffRole(kind)?Math.max(0,Math.min(this.limit(kind)-this.value(kind),Math.floor(quantity)||1)):1;}
   price(kind,quantity=1){
     if(kind==='garage')return this.state.garageLevel<MAX_LEVEL?levelConfig(this.state).cost:Infinity;
+    if(kind==='maxpar')return MAXPAR_LEVELS[this.state.maxparLevel]?.cost??Infinity;
     const u=UPGRADES[kind];if(!u)return Infinity;
     if(!staffRole(kind))return Math.floor(u.base*u.factor**Math.max(0,this.value(kind)-(u.initial??0)));
     const count=this.hiringCount(kind,quantity),stageBudget=this.state.garageLevel>1?LEVELS[this.state.garageLevel-2].cost*.002:0;
@@ -191,6 +208,13 @@ export class GameModel{
   limit(kind){
     const s=this.state,c=levelConfig(s),level=s.garageLevel;let cap;
     switch(kind){
+      case 'maxpar':return maxparLevelLimit(s);
+      case 'maxparWorker':cap=s.maxparLevel?maxparConfig(s).workers:0;break;
+      case 'maxparCollector':cap=s.maxparLevel?maxparCollectorLimit(s):0;break;
+      case 'maxparWarehouse':cap=s.maxparLevel?Math.min(6,s.maxparLevel):0;break;
+      case 'maxparTools':case 'maxparSpeed':cap=s.maxparLevel?Math.min(8,s.maxparLevel+1):0;break;
+      case 'maxparComfort':cap=s.maxparLevel?Math.min(4,s.maxparLevel):0;break;
+      case 'maxparContracts':cap=s.maxparLevel>=3?Math.min(6,s.maxparLevel-2):0;break;
       case 'garage':return MAX_LEVEL;
       case 'worker':cap=c.maxWorkers;break;case 'cashier':cap=c.maxCashiers;break;case 'logistics':cap=c.maxCollectors;break;
       case 'store':cap=c.maxStore;break;case 'warehouse':cap=c.maxWarehouse;break;case 'computers':cap=c.maxOffice;break;
@@ -209,12 +233,13 @@ export class GameModel{
     }
     return Math.max(this.value(kind),Math.min(UPGRADES[kind]?.max??cap,cap));
   }
-  unlocked(kind){return kind==='garage'||!!UPGRADES[kind]&&this.state.garageLevel>=UPGRADES[kind].minStage;}
+  unlocked(kind){if(UPGRADES[kind]?.group==='maxpar')return this.state.garageLevel>=7&&(kind==='maxpar'||this.state.maxparLevel>0&&(kind!=='maxparContracts'||this.state.maxparLevel>=3));return kind==='garage'||!!UPGRADES[kind]&&this.state.garageLevel>=UPGRADES[kind].minStage;}
   maxed(kind){return kind==='garage'?this.state.garageLevel>=MAX_LEVEL:this.value(kind)>=this.limit(kind);}
-  canBuy(kind,quantity=1){const needsClearance=this.state.garageLevel>=2;return (!needsClearance||kind!=='garage'||this.footprintSafe!==false)&&(!needsClearance||!['garage','warehouse','store'].includes(kind)||this.constructionSafe!==false)&&this.unlocked(kind)&&!this.maxed(kind)&&this.state.cash>=this.price(kind,quantity)&&(kind!=='garage'||this.expansionReady());}
+  canBuy(kind,quantity=1){const needsClearance=this.state.garageLevel>=2;return (!needsClearance||kind!=='garage'||this.footprintSafe!==false)&&(!needsClearance||!['garage','warehouse','store'].includes(kind)||this.constructionSafe!==false)&&this.unlocked(kind)&&!this.maxed(kind)&&this.state.cash>=this.price(kind,quantity)&&(kind!=='garage'||this.expansionReady())&&(kind!=='maxpar'||this.maxparConstructionSafe!==false&&maxparRequirements(this.state).every(r=>r.complete));}
   buy(kind,quantity=1){
     if(!this.canBuy(kind,quantity))return false;const s=this.state;s.cash-=this.price(kind,quantity);
     if(kind==='garage'){s.garageLevel++;this.normalizeTeams();for(const product of availableProducts(s))this.replenish(product,4);}
+    else if(kind==='maxpar'){s.maxparLevel++;s.maxparWorkers=Math.max(2,s.maxparWorkers);s.maxparCollectors=Math.max(1,s.maxparCollectors);}
     else s[UPGRADES[kind].field]+=this.hiringCount(kind,quantity);
     if(kind==='stock')for(const product of availableProducts(s))this.replenish(product,4);
     this.emit();return true;

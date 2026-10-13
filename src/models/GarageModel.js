@@ -11,6 +11,7 @@ import {WeatherModel} from './WeatherModel.js';
 import {ITModel} from './ITModel.js';
 import {AdvancedOperationsModel} from './AdvancedOperationsModel.js';
 import {CampusModel} from './CampusModel.js';
+import {MaxparModel} from './MaxparModel.js';
 import {PRODUCTS,availableProducts} from './Products.js';
 import {bayX,workerSeat,loungeSpot,deskX,productPoint,rackPoint,shopLayout,shopObstacles,interiorWaypoints,roomOf,driveway,roadExit} from './ShopLayout.js';
 export {bayX,loungeSpot} from './ShopLayout.js';
@@ -19,7 +20,7 @@ const person=(x,z)=>({x,z,facing:0,walk:0,moving:false,phase:'idle',carrying:fal
 
 export class GarageModel{
   constructor(economy){this.economy=economy;this.reset();}
-  reset(){this.clock=new ShiftClock(this.economy);this.staff=new StaffOperationsModel(this.economy);this.navigation=new NavigationSystem();this.cars=[];this.workers=[];this.cashiers=[];this.city=new CityTrafficModel(this.economy.state);this.office=new OfficeModel(this.economy);this.it=new ITModel(this.economy);this.campus=new CampusModel(this.economy);this.advanced=new AdvancedOperationsModel(this.economy);this.logistics=new LogisticsModel(this.economy);this.orders=new OrdersModel(this.economy);this.weather=new WeatherModel(this.economy);this.stockOwners=new Map();this.rackOwners=new Map();this.nextId=0;this.arrival=1;this.time=0;this.events=[];this.payments=0;this.localSupply={};this.syncStaff();this.configureNavigation();this.staff.sync(this);}
+  reset(){this.clock=new ShiftClock(this.economy);this.staff=new StaffOperationsModel(this.economy);this.navigation=new NavigationSystem();this.cars=[];this.workers=[];this.cashiers=[];this.city=new CityTrafficModel(this.economy.state);this.office=new OfficeModel(this.economy);this.it=new ITModel(this.economy);this.campus=new CampusModel(this.economy);this.advanced=new AdvancedOperationsModel(this.economy);this.logistics=new LogisticsModel(this.economy);this.maxpar=new MaxparModel(this.economy);this.orders=new OrdersModel(this.economy);this.weather=new WeatherModel(this.economy);this.stockOwners=new Map();this.rackOwners=new Map();this.nextId=0;this.arrival=1;this.time=0;this.events=[];this.payments=0;this.localSupply={};this.syncStaff();this.configureNavigation();this.staff.sync(this);}
   get cashier(){return this.cashiers[0];}
   workerHome(id){return workerSeat(id);}
   syncStaff(){
@@ -59,7 +60,7 @@ export class GarageModel{
     travel(car,[[-58,access.arrival],[bayX(bay),access.arrival],[bayX(bay),-1.6]],5.2);this.cars.push(car);
   }
   sendToLounge(car){car.driver.phase='toLounge';car.driver.complaining=false;this.move(car.driver,loungeSpot(car.bay),1.25);}
-  vehicles(){return [...this.cars,...this.orders.couriers,...this.city.cars,...this.logistics.trucks,...this.advanced.trucks];}
+  vehicles(){return [...this.cars,...this.orders.couriers,...this.city.cars,...this.logistics.trucks,...this.advanced.trucks,...this.maxpar.cars,...(this.maxpar.supply.truck?[this.maxpar.supply.truck]:[])];}
   needsManeuver(car){const s=this.economy.state;return (typeof car.id==='number'||car.delivery)&&(['reversing'].includes(car.phase)||car.phase==='leaving'&&car.x<shopLayout(s).plotRight+3||car.phase==='arriving'&&car.z<driveway(s).arrival-.35);}
   maneuverAllowed(car){
     if(!this.needsManeuver(car))return true;
@@ -80,7 +81,7 @@ export class GarageModel{
     if(this.needsManeuver(actor))actor.maneuverSince??=this.time;else actor.maneuverSince=null;
     if(!this.maneuverAllowed(actor)){actor.speed=0;actor.moving=false;actor.waitReason='manobra';actor.stoppedFor=(actor.stoppedFor||0)+dt;return false;}
     const snapshot={...actor},vehicles=this.vehicles().filter(v=>Math.abs(v.x-actor.x)<28&&Math.abs(v.z-actor.z)<28);actor.targetSpeed=signalSpeedLimit(actor,this.time,this.city.roads,vehicleSpeedLimit(actor,vehicles,(actor.baseSpeed??=actor.targetSpeed)*this.weather.roadSpeed));const complete=advance(actor,dt);
-    const red=!obeysSignals(snapshot,actor,this.time,this.city.roads),pedestrian=[...this.people(),...this.staff.externalPeople()].some(p=>Math.abs(p.x-actor.x)<9&&Math.abs(p.z-actor.z)<9&&vehiclePedestrianBlocks(snapshot,actor,p,actorRadius(p)))||this.city.pedestrians.some(p=>Math.abs(p.x-actor.x)<9&&Math.abs(p.z-actor.z)<9&&vehiclePedestrianBlocks(snapshot,actor,p,.36)),traffic=vehicles.some(other=>other!==actor&&vehicleCollisionBlocks(snapshot,actor,other));
+    const red=!obeysSignals(snapshot,actor,this.time,this.city.roads),pedestrian=[...this.people(),...this.staff.externalPeople(),...this.maxpar.people()].some(p=>Math.abs(p.x-actor.x)<9&&Math.abs(p.z-actor.z)<9&&vehiclePedestrianBlocks(snapshot,actor,p,actorRadius(p)))||this.city.pedestrians.some(p=>Math.abs(p.x-actor.x)<9&&Math.abs(p.z-actor.z)<9&&vehiclePedestrianBlocks(snapshot,actor,p,.36)),traffic=vehicles.some(other=>other!==actor&&vehicleCollisionBlocks(snapshot,actor,other));
     if(red||pedestrian||traffic){Object.assign(actor,snapshot);actor.speed=0;actor.moving=false;actor.waitReason=red?'semáforo':pedestrian?'pedestre':'trânsito';actor.stoppedFor=(actor.stoppedFor||0)+dt;return false;}actor.waitReason=null;actor.stoppedFor=0;return complete;
   }
   people(){return [...this.cashiers,...this.workers,...this.logistics.workers,...this.office.people(),...this.it.workers,...this.campus.people(),...this.orders.workers(),...this.cars.filter(c=>c.driver.visible).map(c=>c.driver)].filter(a=>!a.offDuty);}
@@ -98,8 +99,8 @@ export class GarageModel{
   tick(dt){
     if(!dt)return;this.navigation.beginStep();this.clock.tick(dt);this.time+=dt;this.weather.tick(dt);this.syncStaff();this.releaseStations();this.events=this.events.filter(e=>this.time-e.time<1.8);this.arrival-=dt;
     if(this.navSignature!==this.layoutSignature())this.configureNavigation();
-    this.city.configure(this.economy.state);this.city.tick(dt,[...this.cars,...this.orders.couriers,...this.logistics.trucks,...this.advanced.trucks],this.weather.roadSpeed);
-    this.staff.tick(dt,this);this.logistics.tick(dt,this);this.office.tick(dt,this);this.it.tick(dt,this);this.campus.tick(dt,this);this.orders.tick(dt,this);this.advanced.tick(dt,this);
+    this.city.configure(this.economy.state);this.city.tick(dt,[...this.cars,...this.orders.couriers,...this.logistics.trucks,...this.advanced.trucks,...this.maxpar.cars,...(this.maxpar.supply.truck?[this.maxpar.supply.truck]:[])],this.weather.roadSpeed);
+    this.staff.tick(dt,this);this.logistics.tick(dt,this);this.office.tick(dt,this);this.it.tick(dt,this);this.campus.tick(dt,this);this.orders.tick(dt,this);this.advanced.tick(dt,this);this.maxpar.tick(dt,this);
     if(this.arrival<=0){this.spawn();this.arrival=this.economy.state.garageLevel===1?8:Math.max(3,9-this.economy.state.workers*.45);}
     for(const car of this.cars){
       if(car.phase==='arriving'&&this.advanceVehicle(car,dt)){const door={x:car.x-(car.vehicleType==='moto'?1:1.65),z:car.z-.05};if(this.people().some(a=>Math.hypot(a.x-door.x,a.z-door.z)<.95)){car.waitReason='desembarque';continue;}const order=this.economy.state.orders.find(o=>o.id===car.orderId);car.phase=car.pickup?(order?.phase==='counterReady'?'finished':'working'):'waiting';car.driver.x=car.x-(car.vehicleType==='moto'?1:1.65);car.driver.z=car.z-.05;car.driver.visible=true;this.configureNavigation();this.sendToLounge(car);}

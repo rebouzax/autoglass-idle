@@ -1,4 +1,6 @@
 const paths={
+ paint:'<path d="M4 3h10v5H4zM14 5h4v6H9v10M7 21h4M4 5H2"/><path d="m18 16 2-3 2 3a2 2 0 1 1-4 0z"/>',
+ assistance:'<path d="M3 21V8l9-5 9 5v13M7 13h10v8H7zM12 6v4M10 8h4M9 17h6"/><path d="m16 3 3 2"/>',
  robot:'<rect x="4" y="7" width="16" height="12" rx="4"/><path d="M12 7V3m-2 0h4M2 11v5m20-5v5M8 19v3m8-3v3M8 15h8"/><circle cx="8" cy="11" r="1"/><circle cx="16" cy="11" r="1"/>',
  plane:'<path d="m2 14 8-4V4a2 2 0 0 1 4 0v6l8 4v3l-8-2v4l3 2H7l3-2v-4l-8 2v-3z"/>',
  ship:'<path d="M4 12h16l-2 7H6l-2-7zM8 12V6h8v6M10 6V3h4v3M2 21q3-3 5 0 3-3 5 0 3-3 5 0 3-3 5 0M8 9h2m4 0h2"/>',

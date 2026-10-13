@@ -152,6 +152,16 @@ As vagas crescem a partir do nível 3, respeitando o desbloqueio de cada setor. 
 
 As mesas do escritório ficam afastadas da passagem da loja, mantendo uma faixa livre para encomendas, retornos e transferências da fábrica ao CL.
 
+## Maxpar: mobilidade e assistência
+
+A Maxpar faz parte deste jogo Autoglass e é adquirida na aba **Melhorias → Maxpar** a partir da etapa 7. Os oito níveis próprios liberam-se nas etapas Autoglass 7, 8, 9, 10, 11, 12, 13 e 15. A ampliação exige dinheiro, assistências concluídas, ferramentas, produtividade, contratos e melhorias do CL. Contratações, ferramentas, recepção, estoque e número de boxes mudam a operação e o cenário. A equipe da Maxpar acrescenta técnicos, agentes, recepcionista e até cinco coletores ao quadro da Autoglass.
+
+Serviços de mobilidade incluem reparo emergencial, vidros e retrovisores, pintura de carros e motos, roda/pneu/suspensão, pequenos reparos de lataria, manutenção de motos e diagnóstico ADAS. Clientes dirigem até um box, passam pela recepção e aguardam sentados. Técnicos fazem diagnóstico, buscam o material no CL próprio, executam o serviço e fazem a inspeção final. A pintura usa pulverização e muda gradualmente a cor da carroceria. O cliente paga e sai pela rua; esse pagamento entra uma única vez no caixa compartilhado do grupo, com faturamento Maxpar separado no painel de operação.
+
+O CL Autoglass separa peças, tintas e os demais insumos em uma transferência interna. Um caminhão leva os recursos ao CL Maxpar, onde coletores descarregam, conferem e endereçam. Os endereços M-01 em diante têm capacidade de 12 itens; ampliar o CL aumenta a área e os endereços. O painel **Operação → Maxpar** apresenta assistências, estoque e movimentações. Insumos em trânsito e pagamentos pendentes são preservados no save. Tintas são insumos de assistência a partir da etapa 7 e não entram na seleção de serviços da loja principal.
+
+Prévias de desenvolvimento: `?preview=7` permite comprar a inauguração; `?preview=8&maxpar=2` mostra os primeiros serviços de mobilidade; `?preview=15&maxpar=8&staff=full` mostra a expansão completa. Essas prévias não alteram o progresso salvo do jogador.
+
 ## Rotina permanente e espaços da empresa
 
 O jogo permanece de dia. Não há fechamento da loja, relógio de turno, aceleração noturna, estacionamento dos funcionários ou deslocamento para casas. Progresso antigo permanece compatível: o horário salvo é normalizado e todos os funcionários começam disponíveis em seus setores. Vagas de visitantes, boxes e veículos de entrega continuam funcionando.

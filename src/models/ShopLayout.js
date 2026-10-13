@@ -1,6 +1,7 @@
 import {activeStaff,workforceLayout} from './Workforce.js';
 import {rectangle} from './NavigationSystem.js';
 import {levelConfig} from './Progression.js';
+import {maxparLayout} from './MaxparProgression.js';
 export const bayX=index=>1.25+index*5.2;
 export const workerSeat=index=>({x:bayX(index)+1.05,z:-6.8,facing:0});
 export const drawerX=index=>bayX(index)-1;
@@ -39,8 +40,8 @@ export function cityRoads(s={garageLevel:1}){const l=shopLayout(s);return{xs:[-2
 export function onCityRoad(s,x,z,r=0){const roads=cityRoads(s),half=s.garageLevel>=6?4.7:3.7;return roads.xs.some(v=>Math.abs(x-v)<half+r)||roads.zs.some(v=>Math.abs(z-v)<half+r);}
 export const roadExit=s=>Math.max(100,shopLayout(s).plotRight+32);
 export function cityExtent(s){
- const l=shopLayout(s),roads=cityRoads(s),stage=s.garageLevel;
- return Math.max(stage>=6?230+(stage-6)*20:116+stage*12,l.plotRight*2+44,Math.abs(l.plotBack)*2+64,(roadExit(s)+20)*2,(roads.xs[1]+34)*2);
+ const l=shopLayout(s),roads=cityRoads(s),stage=s.garageLevel,m=stage>=7?maxparLayout(s,roads.zs[1]):null;
+ return Math.max(stage>=6?230+(stage-6)*20:116+stage*12,l.plotRight*2+44,Math.abs(l.plotBack)*2+64,(roadExit(s)+20)*2,(roads.xs[1]+34)*2,m?Math.abs(m.plotBack)*2+24:0);
 }
 // Supply trucks share the rear public street; only the dock apron is private.
 export function logisticsAccess(s){

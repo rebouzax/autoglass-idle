@@ -6,6 +6,7 @@ import {availableProducts} from './models/Products.js';
 import {getAddresses} from './models/ShopLayout.js';
 import {GameView} from './views/GameView.js';
 import {GameViewModel} from './viewmodels/GameViewModel.js';
+import {MAXPAR_LEVELS,maxparLevelLimit,maxparConfig} from './models/MaxparProgression.js';
 
 // Development previews never read or write the player's saved progress.
 const params=new URLSearchParams(location.search),previewStage=import.meta.env.DEV?Number(params.get('preview')):0,preview=Number.isInteger(previewStage)&&previewStage>=1&&previewStage<=MAX_LEVEL;
@@ -19,8 +20,14 @@ if(preview){
   if(params.get('staff')==='full'){for(const role of STAFF_ROLES)s[role.field]=c[role.capacity];s.officeComputers=c.maxOffice;s.itComputers=c.maxIT;}
   if(previewStage===1&&params.get('expansion')==='ready')Object.assign(s,{cash:600,customers:6,productivity:2,tools:2,stockRacks:1});
   model.normalizeTeams();
+  if(previewStage>=7&&params.has('maxpar')){
+    s.maxparLevel=Math.max(0,Math.min(maxparLevelLimit(s),Number(params.get('maxpar'))||1));
+    if(s.maxparLevel){s.maxparCollectors=params.get('staff')==='full'?Math.min(6,1+Math.floor(s.maxparLevel/2)):1;s.maxparWarehouse=Math.max(0,Math.min(6,s.maxparLevel-1));s.maxparWorkers=params.get('staff')==='full'?maxparConfig(s).workers:Math.min(4,maxparConfig(s).workers);s.maxparTools=s.maxparLevel;s.maxparSpeed=s.maxparLevel;s.maxparComfort=Math.min(4,s.maxparLevel);s.maxparContracts=Math.max(0,Math.min(6,s.maxparLevel-2));s.maxparServices=MAXPAR_LEVELS[s.maxparLevel-1].services;s.cash=Math.max(s.cash,MAXPAR_LEVELS[s.maxparLevel-1].cost*3);}
+  }
+  model.normalizeTeams();
   const products=availableProducts(s);
   if(previewStage>=2){for(const key of products)model.setStock(key,Math.min(model.frontCapacity(),12));for(const [index] of getAddresses(s).entries())model.warehouseStock(products[index%products.length])[index]=8;}
+  if(previewStage>=7&&s.maxparLevel){const paintAddress=getAddresses(s).length-1;const occupied=model.addressTotal(paintAddress);if(occupied<12)model.warehouseStock('paint')[paintAddress]=12-occupied;}
   if(previewStage>=15)model.createOrder('lights',4,'air');if(previewStage>=16)model.createOrder('sensors',6,'maritime');
   if(previewStage>=4){model.createOrder('motoMirror',2);model.createOrder('glass',3,previewStage>=6?'online':'office');}
   if(['rain','storm'].includes(params.get('weather')))Object.assign(s,{weatherKind:params.get('weather'),weatherRemaining:420});

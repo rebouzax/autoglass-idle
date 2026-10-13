@@ -1,4 +1,5 @@
 import {onCityRoad,logisticsAccess,driveway} from '../models/ShopLayout.js';
+import {maxparLayout} from '../models/MaxparProgression.js';
 import * as THREE from 'three';
 import {activeStaff} from '../models/Workforce.js';
 import {box,roundedBox,cylinder,tree,batchStatic} from './LowPolyAssets.js';
@@ -86,10 +87,10 @@ function smallPark(parent,x,z,width=8){
 }
 
 export function addCityDetails(city,state,l,roads,extent,buildings=[]){
-  const access=logisticsAccess(state),occupied=(x,z,r=2)=>state.garageLevel>=2&&Math.abs(x-access.entryX)<3.4+r&&z+r>access.road&&z-r<l.plotBack+2||(x+r>l.plotLeft&&x-r<l.plotRight&&z+r>l.plotBack&&z-r<driveway(state).front)||(state.garageLevel>=15&&(Math.abs(z-32)<r+4||Math.abs(x+46)<r+4||x>-84-r&&x<-46+r&&z>l.plotBack-5&&z<5))||(state.garageLevel>=16&&z>43-r);const curb=state.garageLevel>=6?4.6:3.42;
+  const m=state.garageLevel>=7?maxparLayout(state,roads.zs[1]):null,access=logisticsAccess(state),occupied=(x,z,r=2)=>m&&x+r>m.plotLeft&&x-r<m.plotRight&&z+r>m.plotBack&&z-r<m.plotFront||state.garageLevel>=2&&Math.abs(x-access.entryX)<3.4+r&&z+r>access.road&&z-r<l.plotBack+2||(x+r>l.plotLeft&&x-r<l.plotRight&&z+r>l.plotBack&&z-r<driveway(state).front)||(state.garageLevel>=15&&(Math.abs(z-32)<r+4||Math.abs(x+46)<r+4||x>-84-r&&x<-46+r&&z>l.plotBack-5&&z<5))||(state.garageLevel>=16&&z>43-r);const curb=state.garageLevel>=6?4.6:3.42;
   for(const z of roads.zs){
     for(const side of [-1,1]){
-      for(let x=-extent/2+1;x<extent/2;x+=2){if(roads.xs.some(v=>Math.abs(x-v)<6)||side===-1&&z===roads.zs[0]&&x>-12&&x<l.officeRight+1||state.garageLevel>=2&&side===1&&z===access.road&&Math.abs(x-access.entryX)<4.5)continue;box(city,'#aabac0',[2,.11,.14],[x,.095,z+side*curb]);}
+      for(let x=-extent/2+1;x<extent/2;x+=2){if(roads.xs.some(v=>Math.abs(x-v)<6)||side===-1&&z===roads.zs[0]&&x>-12&&x<l.officeRight+1||m&&side===-1&&z===roads.zs[1]&&x>m.left&&x<m.right||state.garageLevel>=2&&side===1&&z===access.road&&Math.abs(x-access.entryX)<4.5||state.maxparLevel&&side===1&&z===roads.zs[1]&&Math.abs(x+12.5)<3)continue;box(city,'#aabac0',[2,.11,.14],[x,.095,z+side*curb]);}
       for(let x=-extent/2+4;x<extent/2-4;x+=14){
         if(roads.xs.some(v=>Math.abs(x-v)<8)||occupied(x,z+side*(curb+2.2),1.2))continue;
         box(city,'#c3d2c6',[2.25,.11,1.3],[x,.06,z+side*(curb+2.2)]);

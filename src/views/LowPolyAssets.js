@@ -29,9 +29,9 @@ export function label(text, color = '#fff', width = 4) {
   const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthWrite: false })); sprite.scale.set(width, width * .156, 1); return sprite;
 }
-export function shopSign(text,width=5.3) {
+export function shopSign(text,width=5.3,background='#1578c7') {
   const canvas=document.createElement('canvas');canvas.width=1024;canvas.height=128;
-  const context=canvas.getContext('2d');context.fillStyle='#1578c7';context.fillRect(0,0,1024,128);
+  const context=canvas.getContext('2d');context.fillStyle=background;context.fillRect(0,0,1024,128);
   context.font='800 66px system-ui';context.textAlign='center';context.textBaseline='middle';context.fillStyle='#fff';context.fillText(text,512,66);
   const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
   const mesh=new THREE.Mesh(new THREE.PlaneGeometry(width,.48),new THREE.MeshBasicMaterial({map:texture}));mesh.userData.sign=true;return mesh;

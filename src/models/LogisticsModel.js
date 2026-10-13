@@ -17,7 +17,7 @@ export class LogisticsModel{
  }
  freeAddress(sim){const candidates=getAddresses(this.economy.state).map((a,i)=>({i,total:this.economy.addressTotal(i)})).filter(a=>a.total+4<=12&&!this.workers.some(w=>w.address===a.i)&&!sim.rackOwners.has(a.i));candidates.sort((a,b)=>a.total-b.total||a.i-b.i);return candidates[0]?.i??-1;}
  spawnTruck(dock){
-  const s=this.economy.state,access=logisticsAccess(s),lane=access.lane,id=this.deliveryId++,keys=availableProducts(s),projection=Object.fromEntries(keys.map(k=>[k,this.economy.stock(k)+this.economy.warehouseTotal(k)]));
+  const s=this.economy.state,access=logisticsAccess(s),lane=access.lane,id=this.deliveryId++,keys=availableProducts(s,true),projection=Object.fromEntries(keys.map(k=>[k,this.economy.stock(k)+this.economy.warehouseTotal(k)]));
   let reserved=0;
   for(const truck of this.trucks)for(const parcel of truck.manifest.slice(truck.cursor)){reserved+=parcel.units;projection[parcel.product]+=parcel.units;}
   for(const worker of this.workers)if(worker.units){reserved+=worker.units;projection[worker.product]+=worker.units;}
@@ -64,7 +64,7 @@ export class LogisticsModel{
  tick(dt,sim){
   if(!this.enabled())return;this.time+=dt;this.sync(sim);const s=this.economy.state,access=logisticsAccess(s),lane=access.lane,p=(1+s.logisticsProductivity*.3+s.officeComputers*.04+s.automation*.12+s.wmsLevel*.08)*this.economy.trainingBonus()*this.economy.teamEfficiency('logistics');this.nextDelivery-=dt;this.releaseAccess();
   const output=sim.campus.outputOwner;if(output&&!['toFactory','collectFactory'].includes(output.phase)&&Math.hypot(output.x-factoryPickup(s).x,output.z-factoryPickup(s).z)>1.35)sim.campus.outputOwner=null;
-  const safe=!this.trucks.some(t=>t.phase!=='unloading')&&!sim.cars.some(c=>['arriving','reversing'].includes(c.phase))&&!sim.orders.couriers.some(c=>['arriving','reversing'].includes(c.phase)),footprintSafe=!sim.orders.couriers.some(c=>c.phase!=='gone'&&c.x<roadExit(s)-10);if(this.economy.constructionSafe!==safe||this.economy.footprintSafe!==footprintSafe){this.economy.constructionSafe=safe;this.economy.footprintSafe=footprintSafe;this.economy.emit();}
+  const safe=(!sim.maxpar.supply.truck||sim.maxpar.supply.truck.phase==='companyLoading')&&!sim.maxpar.cars.some(c=>['arriving','reversing','leaving'].includes(c.phase))&&!this.trucks.some(t=>t.phase!=='unloading')&&!sim.cars.some(c=>['arriving','reversing'].includes(c.phase))&&!sim.orders.couriers.some(c=>['arriving','reversing'].includes(c.phase)),footprintSafe=!sim.orders.couriers.some(c=>c.phase!=='gone'&&c.x<roadExit(s)-10);if(this.economy.constructionSafe!==safe||this.economy.footprintSafe!==footprintSafe){this.economy.constructionSafe=safe;this.economy.footprintSafe=footprintSafe;this.economy.emit();}
   const free=docks(s).find(d=>!this.trucks.some(t=>t.dock===d.index)),approaching=this.trucks.some(t=>t.phase==='queued'||t.phase==='arriving');
   // One incoming delivery at a time keeps the public road clear; docks unload concurrently.
   if(free&&!approaching&&this.nextDelivery<=0&&this.freeAddress(sim)>=0&&this.economy.warehouseTotal()<getAddresses(s).length*10&&!sim.vehicles().some(v=>Math.hypot(v.x-access.startX,v.z-lane)<7)){if(this.spawnTruck(free))this.nextDelivery=6;}
